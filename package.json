@@ -7,7 +7,7 @@
   "license": "UNLICENSED",
 
   "scripts": {
-    "build": "node node_modules/@nestjs/cli/bin/nest.js build",
+    "build": "tsc -p tsconfig.build.json",
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main.js",
@@ -59,8 +59,8 @@
   },
 
   "engines": {
-    "node": "18.x"
-  },
+  "node": "20.x"
+},
 
   "jest": {
     "moduleFileExtensions": ["js", "json", "ts"],
