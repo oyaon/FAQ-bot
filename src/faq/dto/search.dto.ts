@@ -1,7 +1,8 @@
-import { IsString, MinLength } from 'class-validator';
+﻿import { IsString, IsNotEmpty, MaxLength } from 'class-validator';
 
 export class SearchDto {
   @IsString()
-  @MinLength(2)
+  @IsNotEmpty()
+  @MaxLength(500)
   query: string;
 }
