@@ -43,8 +43,8 @@ async function main() {
   // Step 3: Generate and store embeddings
   for (const faq of faqs) {
     try {
-      // Combine question + answer for richer embedding
-      const text = `Question: ${faq.question}\nAnswer: ${faq.answer}`;
+      // Just the question, no answer
+      const text = faq.question;
 
       // Generate embedding
       const output = await embedder(text, { pooling: 'mean', normalize: true });
@@ -71,3 +71,4 @@ async function main() {
 }
 
 main().catch(console.error);
+
