@@ -301,7 +301,7 @@
         </div>`;
 
     } else if (data.route === 'suggestions') {
-      // Show best match prominently
+      // Show best match first
       const bestMatch = data.results?.[0];
       const bestAnswer = bestMatch?.answer || 'No answer found.';
       
@@ -313,9 +313,8 @@
 
       content = `
         <span class="badge suggestions">🔍 Multiple matches found</span>
-        <div style="margin-bottom:8px;font-weight:500">Best answer:</div>
-        <div style="margin-bottom:10px">${escapeHtml(bestAnswer)}</div>
-        <div style="font-size:12px;color:#6b7280;margin-bottom:6px">Other related FAQs:</div>
+        <div style="margin-bottom:8px"><strong>Best answer:</strong><br>${escapeHtml(bestAnswer)}</div>
+        <div style="font-size:12px;color:#6b7280;margin-bottom:8px">Other related FAQs:</div>
         ${cards}
         <div class="feedback-row" style="margin-top:10px">
           <span>Helpful?</span>
