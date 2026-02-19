@@ -1,4 +1,5 @@
 ﻿import { Controller, Post, Body, Get } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { FaqService } from './faq.service';
 import { EmbeddingService } from '../embedding/embedding.service';
 import { SearchDto } from './dto/search.dto';
@@ -17,6 +18,7 @@ export class FaqController {
   }
 
   @Post('search')
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 searches per minute
   async search(@Body() dto: SearchDto) {
     const query = dto.query;
     if (!query || query.trim().length === 0) {
