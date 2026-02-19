@@ -35,6 +35,7 @@ export class FaqController {
       let route = 'fallback';
       let topFaqId: number | null = null;
       let similarity: number | null = null;
+      let queryLogId: number | null = null;
 
       if (results.length > 0) {
         const best = results[0];
@@ -43,7 +44,7 @@ export class FaqController {
 
         if (similarity >= 75) {
           route = 'direct';
-          await this.faqService.logQuery(
+          queryLogId = await this.faqService.logQuery(
             query,
             topFaqId,
             similarity,
@@ -57,13 +58,14 @@ export class FaqController {
             question: best.question,
             category: best.category,
             results: [best],
+            queryLogId,
           };
         } else if (similarity >= 50) {
           route = 'suggestions';
         }
       }
 
-      await this.faqService.logQuery(
+      queryLogId = await this.faqService.logQuery(
         query,
         topFaqId,
         similarity,
@@ -75,6 +77,7 @@ export class FaqController {
         route,
         similarity,
         results,
+        queryLogId,
       };
     } catch (error) {
       // Model not ready or other error

@@ -251,6 +251,8 @@
   const inputEl    = document.getElementById('queryInput');
   const sendBtn    = document.getElementById('sendBtn');
 
+  let currentQueryLogId = null;
+
   // Send on Enter key
   inputEl.addEventListener('keydown', e => {
     if (e.key === 'Enter') sendMessage();
@@ -299,6 +301,10 @@
         </div>`;
 
     } else if (data.route === 'suggestions') {
+      // Show best match prominently
+      const bestMatch = data.results?.[0];
+      const bestAnswer = bestMatch?.answer || 'No answer found.';
+      
       const cards = data.results.map(r => `
         <div class="suggestion-card" onclick="expandCard(this)">
           <h4>${escapeHtml(r.question)}</h4>
@@ -306,8 +312,10 @@
         </div>`).join('');
 
       content = `
-        <span class="badge suggestions">🔍 Related answers</span>
-        <div style="margin-bottom:6px">${escapeHtml(data.message)}</div>
+        <span class="badge suggestions">🔍 Multiple matches found</span>
+        <div style="margin-bottom:8px;font-weight:500">Best answer:</div>
+        <div style="margin-bottom:10px">${escapeHtml(bestAnswer)}</div>
+        <div style="font-size:12px;color:#6b7280;margin-bottom:6px">Other related FAQs:</div>
         ${cards}
         <div class="feedback-row" style="margin-top:10px">
           <span>Helpful?</span>
@@ -351,6 +359,10 @@
 
       const data = await res.json();
       removeTyping();
+      
+      // Store queryLogId for feedback
+      currentQueryLogId = data.queryLogId;
+      
       addBotMessage(data, query);
 
     } catch (err) {
@@ -370,11 +382,23 @@
     inputEl.focus();
   }
 
-  function sendFeedback(btn, helpful) {
+  async function sendFeedback(btn, helpful) {
     const row = btn.parentElement;
     row.querySelectorAll('.feedback-btn').forEach(b => b.classList.remove('selected'));
     btn.classList.add('selected');
-    // Feedback logged (extend later with API call if needed)
+
+    // Send feedback to backend if we have a queryLogId
+    if (currentQueryLogId) {
+      try {
+        await fetch('/feedback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ queryLogId: currentQueryLogId, helpful }),
+        });
+      } catch (err) {
+        console.error('Failed to send feedback:', err);
+      }
+    }
   }
 
   function expandCard(card) {
