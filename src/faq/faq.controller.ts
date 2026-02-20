@@ -4,12 +4,16 @@ import { FaqService } from './faq.service';
 import { EmbeddingService } from '../embedding/embedding.service';
 import { SearchDto } from './dto/search.dto';
 import { FeedbackDto } from './dto/feedback.dto';
+import { ConversationService } from '../conversation/conversation.service';
+import { ContextRewriterService } from '../conversation/context-rewriter.service';
 
 @Controller()
 export class FaqController {
   constructor(
     private faqService: FaqService,
     private embeddingService: EmbeddingService,
+    private conversationService: ConversationService,
+    private contextRewriter: ContextRewriterService,
   ) {}
 
   @Get('health')
@@ -25,11 +29,27 @@ export class FaqController {
       return { error: 'Query is required' };
     }
 
+    // 1. Get or create session
+    let sessionId = dto.sessionId;
+    if (!sessionId) {
+      sessionId = this.conversationService.createSession();
+    }
+
+    // 2. Get conversation history
+    const history = this.conversationService.getRecentContext(sessionId);
+
+    // 3. Rewrite query with context if needed
+    const rewrittenQuery = this.contextRewriter.rewriteWithContext(
+      query,
+      history,
+    );
+    const contextUsed = rewrittenQuery !== query;
+
     const start = Date.now();
 
     try {
       // Generate embedding (now with error handling)
-      const embedding = await this.embeddingService.generate(query);
+      const embedding = await this.embeddingService.generate(rewrittenQuery);
       const results = await this.faqService.searchByVector(embedding, 0.5, 3);
 
       const responseTime = Date.now() - start;
@@ -53,6 +73,11 @@ export class FaqController {
             route,
             responseTime,
           );
+          
+          // 5. Store the exchange in session
+          this.conversationService.addMessage(sessionId, 'user', query);
+          this.conversationService.addMessage(sessionId, 'assistant', best.answer);
+
           return {
             route: 'direct',
             similarity,
@@ -61,6 +86,9 @@ export class FaqController {
             category: best.category,
             results: [best],
             queryLogId,
+            sessionId,
+            contextUsed,
+            rewrittenQuery: contextUsed ? rewrittenQuery : undefined,
           };
         } else if (similarity >= 50) {
           route = 'suggestions';
@@ -75,11 +103,21 @@ export class FaqController {
         responseTime,
       );
 
+      // 5. Store the exchange in session
+      this.conversationService.addMessage(sessionId, 'user', query);
+      const resultsSummary = results.length > 0 
+        ? results.map(r => r.question).join(' | ')
+        : 'No results found';
+      this.conversationService.addMessage(sessionId, 'assistant', resultsSummary);
+
       return {
         route,
         similarity,
         results,
         queryLogId,
+        sessionId,
+        contextUsed,
+        rewrittenQuery: contextUsed ? rewrittenQuery : undefined,
       };
     } catch (error) {
       // Model not ready or other error
@@ -87,6 +125,7 @@ export class FaqController {
         route: 'error',
         message: 'Search is starting up, please try again in a moment.',
         error: error.message,
+        sessionId,
       };
     }
   }

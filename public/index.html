@@ -290,6 +290,7 @@
   const sendBtn    = document.getElementById('sendBtn');
 
   let currentQueryLogId = null;
+  let sessionId = null;
 
   // Send on Enter key
   inputEl.addEventListener('keydown', e => {
@@ -333,8 +334,16 @@
   function addBotMessage(data, query) {
     let content = '';
 
+    // Show context indicator if query was rewritten
+    if (data.contextUsed) {
+      content += `
+        <div style="text-align:center; font-size:11px; color:#94a3b8; padding:6px 0 12px 0; border-bottom:1px solid #e2e8f0; margin-bottom:12px;">
+          <span>📝 Using conversation context</span>
+        </div>`;
+    }
+
     if (data.route === 'direct') {
-      content = `
+      content += `
         <span class="badge direct">✅ Found it</span>
         <div>${escapeHtml(data.answer)}</div>
         <div class="feedback-row">
@@ -393,14 +402,22 @@
     showTyping();
 
     try {
+      const body = { query };
+      if (sessionId) body.sessionId = sessionId;
+
       const res = await fetch('/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify(body),
       });
 
       const data = await res.json();
       removeTyping();
+      
+      // Save session ID for follow-ups
+      if (data.sessionId) {
+        sessionId = data.sessionId;
+      }
       
       // Store queryLogId for feedback
       currentQueryLogId = data.queryLogId;

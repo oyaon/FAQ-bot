@@ -1,5 +1,5 @@
 import { Controller, Get, Query, Res, BadRequestException, UseGuards } from '@nestjs/common';
-import { Response } from 'express';
+import type { Response } from 'express';
 import { parse } from 'json2csv';
 import { SupabaseService } from '../supabase/supabase.service';
 import { ApiKeyGuard } from './api-key.guard';
