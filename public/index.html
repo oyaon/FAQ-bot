@@ -209,6 +209,25 @@
 
     .send-btn:hover    { background: #3b7de8; }
     .send-btn:disabled { background: #cbd5e1; cursor: not-allowed; }
+
+    .quick-q {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      text-align: left;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      color: #334155;
+    }
+
+    .quick-q:hover {
+      background: #eff6ff;
+      border-color: #3b82f6;
+      color: #1d4ed8;
+      transform: translateX(4px);
+    }
   </style>
 </head>
 <body>
@@ -229,6 +248,25 @@
       <div>
         <div class="bubble">
           👋 Hi! I'm your support assistant. Ask me anything about orders, shipping, returns, payments, and more!
+          <div style="margin-top:12px; padding-top:12px; border-top:1px solid #e5e7eb">
+            <div style="font-size:12px; font-weight:600; margin-bottom:8px; color:#6b7280">
+              Try asking:
+            </div>
+            <div style="display:flex; flex-direction:column; gap:6px">
+              <button class="quick-q" onclick="askQuestion('How do I track my order?')">
+                📦 How do I track my order?
+              </button>
+              <button class="quick-q" onclick="askQuestion('What is your return policy?')">
+                🔄 What is your return policy?
+              </button>
+              <button class="quick-q" onclick="askQuestion('Do you offer free shipping?')">
+                🚚 Do you offer free shipping?
+              </button>
+              <button class="quick-q" onclick="askQuestion('How do I get a refund?')">
+                💰 How do I get a refund?
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -257,6 +295,11 @@
   inputEl.addEventListener('keydown', e => {
     if (e.key === 'Enter') sendMessage();
   });
+
+  function askQuestion(question) {
+    document.getElementById('queryInput').value = question;
+    sendMessage();
+  }
 
   function scrollToBottom() {
     messagesEl.scrollTop = messagesEl.scrollHeight;

@@ -4,6 +4,14 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import { ValidationPipe } from '@nestjs/common';
 
+// Keep alive on free tier (pings every 14 minutes)
+if (process.env.NODE_ENV === 'production') {
+  setInterval(() => {
+    fetch(process.env.RENDER_EXTERNAL_URL || 'https://faq-bot-lwt1.onrender.com/health')
+      .catch(() => {});
+  }, 14 * 60 * 1000);
+}
+
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
