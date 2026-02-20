@@ -56,6 +56,8 @@ export class FaqService {
     similarityScore: number | null,
     routeDecision: string,
     responseTimeMs: number,
+    llmUsed: boolean = false,
+    contextUsed: boolean = false,
   ): Promise<number | null> {
     try {
       const supabase = this.supabaseService.getClient();
@@ -74,6 +76,8 @@ export class FaqService {
           similarity_score: similarityScore,
           route_decision: routeDecision,
           response_time_ms: responseTimeMs,
+          llm_used: llmUsed,
+          context_used: contextUsed,
         })
         .select('id')
         .single();
@@ -90,13 +94,37 @@ export class FaqService {
     }
   }
 
-  async saveFeedback(queryLogId: number, helpful: boolean) {
+  async saveFeedback(
+    queryLogId: number,
+    helpful: boolean,
+    rating?: number,
+    feedback?: string,
+    feedbackType?: string,
+  ) {
     try {
       const supabase = this.supabaseService.getClient();
+      const updateData: any = {
+        feedback: helpful,
+      };
+
+      if (rating !== undefined && rating >= 1 && rating <= 5) {
+        updateData.rating = rating;
+      }
+
+      if (feedback && feedback.trim().length > 0) {
+        updateData.feedback_text = feedback;
+      }
+
+      if (feedbackType) {
+        updateData.feedback_type = feedbackType;
+      }
+
       await supabase
         .from('query_logs')
-        .update({ feedback: helpful })
+        .update(updateData)
         .eq('id', queryLogId);
+
+      this.logger.log(`Feedback saved for query log ${queryLogId}`);
     } catch (err) {
       this.logger.error('Failed to save feedback:', err);
     }

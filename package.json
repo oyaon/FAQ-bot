@@ -10,6 +10,8 @@
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main.js",
+    "generate:embeddings": "node scripts/generate-embeddings.mjs",
+    "add:faqs": "node scripts/add-more-faqs.mjs",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",

@@ -122,6 +122,8 @@ export class FaqController {
         similarity,
         route,
         responseTime,
+        llmUsed,
+        contextUsed,
       );
 
       // Store the exchange in session
@@ -155,7 +157,13 @@ export class FaqController {
 
   @Post('feedback')
   async feedback(@Body() dto: FeedbackDto) {
-    await this.faqService.saveFeedback(dto.queryLogId, dto.helpful);
+    await this.faqService.saveFeedback(
+      dto.queryLogId,
+      dto.helpful,
+      dto.rating,
+      dto.feedback,
+      dto.feedbackType,
+    );
     return { success: true };
   }
 }

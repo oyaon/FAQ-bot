@@ -124,6 +124,86 @@
       gap: 4px;
     }
 
+    .feedback-section {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #e5e7eb;
+    }
+
+    .star-rating {
+      display: flex;
+      gap: 2px;
+      margin: 8px 0;
+    }
+
+    .star {
+      cursor: pointer;
+      font-size: 18px;
+      color: #d1d5db;
+      transition: all 0.2s;
+    }
+
+    .star:hover,
+    .star.active {
+      color: #fbbf24;
+      transform: scale(1.1);
+    }
+
+    .feedback-input {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: inherit;
+      resize: vertical;
+      min-height: 50px;
+      margin: 8px 0;
+    }
+
+    .feedback-input:focus {
+      outline: none;
+      border-color: #4f8ef7;
+      box-shadow: 0 0 0 2px #eff6ff;
+    }
+
+    .feedback-btn-group {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .feedback-btn-group button {
+      flex: 1;
+      padding: 6px 12px;
+      border: 1px solid #e5e7eb;
+      background: white;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .feedback-btn-group button:hover {
+      background: #f3f4f6;
+    }
+
+    .feedback-btn-group button.submit {
+      background: #4f8ef7;
+      color: white;
+      border-color: #4f8ef7;
+    }
+
+    .feedback-btn-group button.submit:hover {
+      background: #3b7de8;
+    }
+
+    .feedback-success {
+      color: #16a34a;
+      font-size: 12px;
+      margin-top: 6px;
+    }
+
     .suggestion-card {
       background: white;
       border: 1px solid #e5e7eb;
@@ -486,8 +566,57 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ queryLogId: currentQueryLogId, helpful }),
         });
+        
+        // Show success message
+        const section = row.closest('.feedback-section') || row.parentElement;
+        const successMsg = document.createElement('div');
+        successMsg.className = 'feedback-success';
+        successMsg.textContent = '✓ Thank you for your feedback!';
+        if (section) {
+          section.appendChild(successMsg);
+          setTimeout(() => successMsg.remove(), 3000);
+        }
       } catch (err) {
         console.error('Failed to send feedback:', err);
+      }
+    }
+  }
+
+  function showStarRating(container) {
+    const starHtml = `
+      <div style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">Rate this response:</div>
+      <div class="star-rating" onclick="handleStarClick(event)">
+        <span class="star" data-rating="1">⭐</span>
+        <span class="star" data-rating="2">⭐</span>
+        <span class="star" data-rating="3">⭐</span>
+        <span class="star" data-rating="4">⭐</span>
+        <span class="star" data-rating="5">⭐</span>
+      </div>`;
+    
+    const div = document.createElement('div');
+    div.innerHTML = starHtml;
+    container.appendChild(div);
+  }
+
+  function handleStarClick(event) {
+    if (event.target.classList.contains('star')) {
+      const rating = parseInt(event.target.dataset.rating);
+      const stars = event.target.parentElement.querySelectorAll('.star');
+      stars.forEach((star, idx) => {
+        if (idx < rating) {
+          star.classList.add('active');
+        } else {
+          star.classList.remove('active');
+        }
+      });
+      
+      // Send rating feedback
+      if (currentQueryLogId) {
+        fetch('/feedback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ queryLogId: currentQueryLogId, helpful: rating >= 3, rating }),
+        }).catch(err => console.error('Failed to save rating:', err));
       }
     }
   }
