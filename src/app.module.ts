@@ -6,7 +6,7 @@ import { FaqModule } from './faq/faq.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { AdminController } from './admin/admin.controller';
+import { AdminModule } from './admin/admin.module';
 import { SupabaseModule } from './supabase/supabase.module';
 import { ChatModule } from './chat/chat.module';
 import { ConversationModule } from './conversation/conversation.module';
@@ -25,8 +25,9 @@ import { ConversationModule } from './conversation/conversation.module';
     MetricsModule,
     ChatModule,
     ConversationModule,
+    AdminModule,
   ],
-  controllers: [AppController, AdminController],
+  controllers: [AppController],
   providers: [
     AppService,
     {

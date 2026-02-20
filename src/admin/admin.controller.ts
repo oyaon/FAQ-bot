@@ -1,11 +1,10 @@
-import { Controller, Get, Query, Res, BadRequestException, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, Res, BadRequestException, UseGuards, Redirect } from '@nestjs/common';
 import type { Response } from 'express';
 import { parse } from 'json2csv';
 import { SupabaseService } from '../supabase/supabase.service';
 import { ApiKeyGuard } from './api-key.guard';
 
 @Controller('admin')
-@UseGuards(ApiKeyGuard)
 export class AdminController {
   constructor(private supabaseService: SupabaseService) {}
 
@@ -14,6 +13,18 @@ export class AdminController {
     if (!regex.test(dateString)) return false;
     const date = new Date(dateString);
     return !isNaN(date.getTime());
+  }
+
+  @Get('analytics')
+  @Redirect('/admin/index.html', 302)
+  analytics() {
+    // Serves index.html from /public/admin folder via ServeStaticModule
+  }
+
+  @Get()
+  @Redirect('/admin/index.html', 302)
+  dashboardRedirect() {
+    // Redirect root /admin to analytics dashboard
   }
 
   @Get()

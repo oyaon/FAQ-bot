@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FAQ Bot Admin Analytics</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f7fa;
+            color: #333;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+        h2 {
+            color: #34495e;
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+        .section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-card.green {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+        .stat-card.orange {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        .stat-card.yellow {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        th, td {
+            border: 1px solid #e1e8ed;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #f8fafc;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        tr:hover {
+            background-color: #f8fafc;
+        }
+        .charts-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+        }
+        .chart-wrapper {
+            position: relative;
+            height: 300px;
+        }
+        canvas {
+            max-width: 100%;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        .error {
+            background: #fee;
+            color: #c00;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+            font-style: italic;
+        }
+        .refresh-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-left: 20px;
+        }
+        .refresh-btn:hover {
+            background: #5568d3;
+        }
+        .header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .last-updated {
+            color: #666;
+            font-size: 14px;
+            margin-left: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 FAQ Bot Analytics Dashboard</h1>
+            <button class="refresh-btn" onclick="loadDashboard()">🔄 Refresh</button>
+            <span class="last-updated" id="lastUpdated"></span>
+        </div>
+
+        <div id="errorDiv" style="display: none;" class="error"></div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="totalQueries">-</div>
+                <div class="stat-label">Total Queries</div>
+            </div>
+            <div class="stat-card green">
+                <div class="stat-value" id="avgSimilarity">-</div>
+                <div class="stat-label">Avg Confidence</div>
+            </div>
+            <div class="stat-card orange">
+                <div class="stat-value" id="avgResponseTime">-</div>
+                <div class="stat-label">Avg Response Time (ms)</div>
+            </div>
+            <div class="stat-card yellow">
+                <div class="stat-value" id="llmUsageRate">-</div>
+                <div class="stat-label">LLM Usage Rate</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Top Queries (Last 7 Days)</h2>
+            <table id="topQueriesTable">
+                <thead>
+                    <tr>
+                        <th>Query</th>
+                        <th>Count</th>
+                        <th>Avg Confidence</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td colspan="3" class="loading">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="charts-container">
+            <div class="section">
+                <h2>Rating Distribution</h2>
+                <div class="chart-wrapper">
+                    <canvas id="ratingsChart"></canvas>
+                </div>
+            </div>
+            <div class="section">
+                <h2>Feedback Types Breakdown</h2>
+                <div class="chart-wrapper">
+                    <canvas id="feedbackTypesChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Route Statistics</h2>
+            <div class="chart-wrapper">
+                <canvas id="routeStatsChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const BASE_URL = '';
+
+        let ratingsChart = null;
+        let feedbackTypesChart = null;
+        let routeStatsChart = null;
+
+        async function fetchData(endpoint) {
+            try {
+                const res = await fetch(`${BASE_URL}${endpoint}`);
+                if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                return await res.json();
+            } catch (err) {
+                console.error(`Error fetching ${endpoint}:`, err);
+                showError(`Failed to fetch ${endpoint}: ${err.message}`);
+                return null;
+            }
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorDiv');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 10000);
+        }
+
+        function formatDate() {
+            const now = new Date();
+            return now.toLocaleString();
+        }
+
+        function destroyChart(chart) {
+            if (chart) {
+                chart.destroy();
+            }
+        }
+
+        async function loadDashboard() {
+            document.getElementById('lastUpdated').textContent = `Last updated: ${formatDate()}`;
+
+            // Load main metrics
+            const metrics = await fetchData('/metrics');
+            if (metrics) {
+                document.getElementById('totalQueries').textContent = metrics.totalQueries?.toLocaleString() || '0';
+                document.getElementById('avgSimilarity').textContent = `${metrics.averageSimilarity || 0}%`;
+                document.getElementById('avgResponseTime').textContent = metrics.averageResponseTime || '0';
+                document.getElementById('llmUsageRate').textContent = `${metrics.llmUsageRate || 0}%`;
+
+                // Route stats chart
+                if (metrics.routeBreakdown) {
+                    const ctxRoutes = document.getElementById('routeStatsChart').getContext('2d');
+                    destroyChart(routeStatsChart);
+                    routeStatsChart = new Chart(ctxRoutes, {
+                        type: 'bar',
+                        data: {
+                            labels: Object.keys(metrics.routeBreakdown),
+                            datasets: [{
+                                label: 'Route Usage',
+                                data: Object.values(metrics.routeBreakdown),
+                                backgroundColor: [
+                                    'rgba(102, 126, 234, 0.7)',
+                                    'rgba(56, 239, 125, 0.7)',
+                                    'rgba(245, 87, 108, 0.7)',
+                                    'rgba(79, 172, 254, 0.7)',
+                                    'rgba(255, 206, 86, 0.7)',
+                                ],
+                                borderColor: [
+                                    'rgba(102, 126, 234, 1)',
+                                    'rgba(56, 239, 125, 1)',
+                                    'rgba(245, 87, 108, 1)',
+                                    'rgba(79, 172, 254, 1)',
+                                    'rgba(255, 206, 86, 1)',
+                                ],
+                                borderWidth: 1,
+                            }],
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: false,
+                                },
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                },
+                            },
+                        },
+                    });
+                }
+            }
+
+            // Top Queries Table
+            const topQueries = await fetchData('/metrics/top-queries?limit=10');
+            const tbody = document.getElementById('topQueriesTable').querySelector('tbody');
+            if (topQueries && topQueries.length > 0) {
+                tbody.innerHTML = topQueries.map(q => `
+                    <tr>
+                        <td>${escapeHtml(q.query)}</td>
+                        <td>${q.count}</td>
+                        <td>${q.avgConfidence}%</td>
+                    </tr>
+                `).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="3" class="no-data">No query data yet</td></tr>';
+            }
+
+            // Feedback Stats
+            const feedbackStats = await fetchData('/metrics/feedback-stats');
+            if (feedbackStats) {
+                // Ratings Chart (Bar)
+                const ratingDist = feedbackStats.ratingDistribution || {};
+                const ctxRatings = document.getElementById('ratingsChart').getContext('2d');
+                destroyChart(ratingsChart);
+                ratingsChart = new Chart(ctxRatings, {
+                    type: 'bar',
+                    data: {
+                        labels: ['5 Stars', '4 Stars', '3 Stars', '2 Stars', '1 Star'],
+                        datasets: [{
+                            label: 'Count',
+                            data: [
+                                ratingDist.fiveStar || 0,
+                                ratingDist.fourStar || 0,
+                                ratingDist.threeStar || 0,
+                                ratingDist.twoStar || 0,
+                                ratingDist.oneStar || 0,
+                            ],
+                            backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            borderWidth: 1,
+                        }],
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false,
+                            },
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                            },
+                        },
+                    },
+                });
+
+                // Feedback Types Chart (Pie)
+                const feedbackTypes = feedbackStats.feedbackTypes || {};
+                if (Object.keys(feedbackTypes).length > 0) {
+                    const ctxTypes = document.getElementById('feedbackTypesChart').getContext('2d');
+                    destroyChart(feedbackTypesChart);
+                    feedbackTypesChart = new Chart(ctxTypes, {
+                        type: 'pie',
+                        data: {
+                            labels: Object.keys(feedbackTypes),
+                            datasets: [{
+                                data: Object.values(feedbackTypes),
+                                backgroundColor: [
+                                    '#FF6384',
+                                    '#36A2EB',
+                                    '#FFCE56',
+                                    '#4BC0C0',
+                                    '#9966FF',
+                                    '#FF9F40',
+                                ],
+                            }],
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                        },
+                    });
+                }
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Load dashboard on page load
+        loadDashboard();
+
+        // Auto-refresh every 60 seconds
+        setInterval(loadDashboard, 60000);
+    </script>
+</body>
+</html>
+
