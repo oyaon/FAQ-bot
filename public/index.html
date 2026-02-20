@@ -112,6 +112,17 @@
     .badge.direct      { background: #dcfce7; color: #16a34a; }
     .badge.suggestions { background: #fef9c3; color: #ca8a04; }
     .badge.fallback    { background: #fee2e2; color: #dc2626; }
+    .badge.llm_synthesis { background: #e9d5ff; color: #7e22ce; }
+    .badge.direct_fallback { background: #fed7aa; color: #92400e; }
+
+    .llm-indicator {
+      font-size: 10px;
+      color: #8b5cf6;
+      margin-top: 6px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
 
     .suggestion-card {
       background: white;
@@ -352,6 +363,27 @@
           <button class="feedback-btn" onclick="sendFeedback(this, false)">👎</button>
         </div>`;
 
+    } else if (data.route === 'llm_synthesis') {
+      content += `
+        <span class="badge llm_synthesis">🤖 AI-Synthesized</span>
+        <div>${escapeHtml(data.answer)}</div>
+        <div class="llm-indicator">✨ Combined from multiple FAQs</div>
+        <div class="feedback-row" style="margin-top:10px">
+          <span>Helpful?</span>
+          <button class="feedback-btn" onclick="sendFeedback(this, true)">👍</button>
+          <button class="feedback-btn" onclick="sendFeedback(this, false)">👎</button>
+        </div>`;
+
+    } else if (data.route === 'direct_fallback') {
+      content += `
+        <span class="badge direct_fallback">⚠️ LLM Fallback</span>
+        <div>${escapeHtml(data.answer)}</div>
+        <div class="feedback-row">
+          <span>Helpful?</span>
+          <button class="feedback-btn" onclick="sendFeedback(this, true)">👍</button>
+          <button class="feedback-btn" onclick="sendFeedback(this, false)">👎</button>
+        </div>`;
+
     } else if (data.route === 'suggestions') {
       // Show best match first
       const bestMatch = data.results?.[0];
@@ -377,7 +409,7 @@
     } else {
       content = `
         <span class="badge fallback">❓ Not sure</span>
-        <div>${escapeHtml(data.message)}</div>
+        <div>${escapeHtml(data.answer || data.message)}</div>
         <div style="margin-top:8px;font-size:13px;color:#6b7280">
           Try rephrasing, or email us at <strong>support@company.com</strong>
         </div>`;

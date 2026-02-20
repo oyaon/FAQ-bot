@@ -6,6 +6,7 @@ import { SearchDto } from './dto/search.dto';
 import { FeedbackDto } from './dto/feedback.dto';
 import { ConversationService } from '../conversation/conversation.service';
 import { ContextRewriterService } from '../conversation/context-rewriter.service';
+import { LlmService } from '../llm/llm.service';
 
 @Controller()
 export class FaqController {
@@ -14,6 +15,7 @@ export class FaqController {
     private embeddingService: EmbeddingService,
     private conversationService: ConversationService,
     private contextRewriter: ContextRewriterService,
+    private llmService: LlmService,
   ) {}
 
   @Get('health')
@@ -48,7 +50,7 @@ export class FaqController {
     const start = Date.now();
 
     try {
-      // Generate embedding (now with error handling)
+      // Generate embedding
       const embedding = await this.embeddingService.generate(rewrittenQuery);
       const results = await this.faqService.searchByVector(embedding, 0.5, 3);
 
@@ -58,43 +60,62 @@ export class FaqController {
       let topFaqId: number | null = null;
       let similarity: number | null = null;
       let queryLogId: number | null = null;
+      let answer: string;
+      let llmUsed = false;
 
-      if (results.length > 0) {
-        const best = results[0];
-        similarity = Math.round(best.similarity * 100);
-        topFaqId = best.id;
+      const topResult = results.length > 0 ? results[0] : null;
 
-        if (similarity >= 75) {
-          route = 'direct';
-          queryLogId = await this.faqService.logQuery(
-            query,
-            topFaqId,
-            similarity,
-            route,
-            responseTime,
-          );
-          
-          // 5. Store the exchange in session
-          this.conversationService.addMessage(sessionId, 'user', query);
-          this.conversationService.addMessage(sessionId, 'assistant', best.answer);
+      // 3-TIER ROUTING LOGIC
+      if (topResult && topResult.similarity >= 0.8) {
+        // HIGH confidence - direct FAQ answer
+        route = 'direct';
+        answer = topResult.answer;
+        similarity = Math.round(topResult.similarity * 100);
+        topFaqId = topResult.id;
 
-          return {
-            route: 'direct',
-            similarity,
-            answer: best.answer,
-            question: best.question,
-            category: best.category,
-            results: [best],
-            queryLogId,
-            sessionId,
-            contextUsed,
-            rewrittenQuery: contextUsed ? rewrittenQuery : undefined,
-          };
-        } else if (similarity >= 50) {
-          route = 'suggestions';
+      } else if (topResult && topResult.similarity >= 0.5) {
+        // MEDIUM confidence - use LLM to synthesize
+        route = 'llm_synthesis';
+        similarity = Math.round(topResult.similarity * 100);
+        topFaqId = topResult.id;
+
+        const faqContext = results
+          .filter(r => r.similarity >= 0.4)
+          .map(r => ({
+            question: r.question,
+            answer: r.answer,
+            similarity: r.similarity,
+          }));
+
+        const historyStrings = history.map(
+          m => `${m.role}: ${m.content}`,
+        );
+
+        const synthesized = await this.llmService.synthesizeAnswer(
+          query,
+          faqContext,
+          historyStrings,
+        );
+
+        if (synthesized) {
+          answer = synthesized;
+          llmUsed = true;
+        } else {
+          // LLM failed, fall back to best FAQ
+          answer = topResult.answer;
+          route = 'direct_fallback';
         }
+
+      } else {
+        // LOW confidence - graceful fallback
+        route = 'fallback';
+        answer =
+          "I'm not sure about that specific question. " +
+          'You can contact our support team at support@example.com ' +
+          'or try rephrasing your question.';
       }
 
+      // Log the query
       queryLogId = await this.faqService.logQuery(
         query,
         topFaqId,
@@ -103,21 +124,23 @@ export class FaqController {
         responseTime,
       );
 
-      // 5. Store the exchange in session
+      // Store the exchange in session
       this.conversationService.addMessage(sessionId, 'user', query);
-      const resultsSummary = results.length > 0 
-        ? results.map(r => r.question).join(' | ')
-        : 'No results found';
-      this.conversationService.addMessage(sessionId, 'assistant', resultsSummary);
+      this.conversationService.addMessage(sessionId, 'assistant', answer);
 
       return {
+        answer,
         route,
-        similarity,
-        results,
-        queryLogId,
+        confidence: similarity || 0,
         sessionId,
         contextUsed,
         rewrittenQuery: contextUsed ? rewrittenQuery : undefined,
+        llmUsed,
+        queryLogId,
+        topResult: topResult ? {
+          question: topResult.question,
+          category: topResult.category,
+        } : null,
       };
     } catch (error) {
       // Model not ready or other error
