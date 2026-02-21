@@ -34,7 +34,7 @@ export class FaqController {
     // 1. Get or create session
     let sessionId = dto.sessionId;
     if (!sessionId) {
-      sessionId = this.conversationService.createSession();
+      sessionId = await this.conversationService.createSession();
     }
 
     // 2. Get conversation history
@@ -127,8 +127,8 @@ export class FaqController {
       );
 
       // Store the exchange in session
-      this.conversationService.addMessage(sessionId, 'user', query);
-      this.conversationService.addMessage(sessionId, 'assistant', answer);
+      await this.conversationService.addMessage(sessionId, 'user', query);
+      await this.conversationService.addMessage(sessionId, 'assistant', answer);
 
       return {
         answer,
