@@ -139,6 +139,18 @@ const NEW_FAQS = [
     answer: 'You can cancel orders that haven\'t shipped yet. Go to "Order History", select the order, and click "Cancel Order". If it has already shipped, you\'ll need to refuse delivery or request a return.',
     category: 'Orders',
   },
+
+  // Returns
+  {
+    question: 'What is your return policy?',
+    answer: 'You can return most items within 30 days of delivery for a full refund. Items must be unused, in original packaging, and with tags attached. Visit our Returns Portal to initiate a return.',
+    category: 'Returns',
+  },
+  {
+    question: 'What if my item arrives damaged or defective?',
+    answer: 'If your item arrives damaged or defective, we are very sorry! Please take photos of the damage and contact our support team within 48 hours of delivery. We will immediately send you a replacement or issue a full refund - no need to return the damaged item. Email photos to support@company.com or use live chat for fastest resolution.',
+    category: 'Returns',
+  },
 ];
 
 async function addFaqs() {

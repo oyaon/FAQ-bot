@@ -8,7 +8,6 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AdminModule } from './admin/admin.module';
 import { SupabaseModule } from './supabase/supabase.module';
-import { ChatModule } from './chat/chat.module';
 import { ConversationModule } from './conversation/conversation.module';
 
 @Module({
@@ -23,7 +22,6 @@ import { ConversationModule } from './conversation/conversation.module';
     SupabaseModule,
     FaqModule,
     MetricsModule,
-    ChatModule,
     ConversationModule,
     AdminModule,
   ],

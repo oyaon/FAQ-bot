@@ -487,9 +487,10 @@
         </div>`;
 
     } else {
+      const message = data.answer || data.message || "I couldn't find an answer to your question. Please contact our support team.";
       content = `
         <span class="badge fallback">❓ Not sure</span>
-        <div>${escapeHtml(data.answer || data.message)}</div>
+        <div>${escapeHtml(message)}</div>
         <div style="margin-top:8px;font-size:13px;color:#6b7280">
           Try rephrasing, or email us at <strong>support@company.com</strong>
         </div>`;

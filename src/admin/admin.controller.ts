@@ -5,6 +5,7 @@ import { SupabaseService } from '../supabase/supabase.service';
 import { ApiKeyGuard } from './api-key.guard';
 
 @Controller('admin')
+@UseGuards(ApiKeyGuard)
 export class AdminController {
   constructor(private supabaseService: SupabaseService) {}
 
@@ -27,7 +28,7 @@ export class AdminController {
     // Redirect root /admin to analytics dashboard
   }
 
-  @Get()
+  @Get('dashboard')
   async dashboard(
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
