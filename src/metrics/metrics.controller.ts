@@ -1,7 +1,9 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
+import { ApiKeyGuard } from '../admin/api-key.guard';
 
 @Controller('metrics')
+@UseGuards(ApiKeyGuard)
 export class MetricsController {
   constructor(private supabaseService: SupabaseService) {}
 

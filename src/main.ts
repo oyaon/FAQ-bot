@@ -18,9 +18,18 @@ async function bootstrap() {
   app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
 
   app.useStaticAssets(join(__dirname, '..', 'public'));
-  app.enableCors();
+  
+  // Configure CORS with restricted origins
+  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || ['https://faq-bot-lwt1.onrender.com'];
+  app.enableCors({
+    origin: allowedOrigins,
+    credentials: true,
+    methods: ['GET', 'POST'],
+    allowedHeaders: ['Content-Type', 'x-api-key'],
+  });
 
   await app.listen(process.env.PORT ?? 3000);
+
 
   console.log('🚀 FAQ Bot running on http://localhost:3000');
 }

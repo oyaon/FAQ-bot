@@ -71,13 +71,17 @@ Customer question: "${userQuery}"
 Answer (friendly, direct, using only the FAQs above):`;
 
     try {
-      const response = await fetch(`${this.apiUrl}?key=${this.apiKey}`, {
+      const response = await fetch(this.apiUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': this.apiKey,
+        },
         body: JSON.stringify({
           contents: [
             {
               parts: [{ text: prompt }],
+
             },
           ],
           generationConfig: {

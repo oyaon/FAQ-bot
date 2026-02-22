@@ -93,7 +93,31 @@ ADMIN_API_KEY = ____________________________________
 
 ---
 
+### 6. ALLOWED_ORIGINS (CORS Security - NEW!)
+**What it is:**
+- Comma-separated list of allowed origins for CORS (Cross-Origin Resource Sharing)
+- Restricts which websites can call your API
+- Critical security setting to prevent unauthorized access
+
+**Default value:**
+```
+ALLOWED_ORIGINS = https://faq-bot-lwt1.onrender.com,http://localhost:3000
+```
+
+**Format:**
+- Comma-separated URLs (no spaces)
+- Include production URL and any development URLs
+- Example: `https://your-app.onrender.com,http://localhost:3000,http://localhost:5173`
+
+**Your value:**
+```
+ALLOWED_ORIGINS = ____________________________________
+```
+
+---
+
 ## 🔍 Verification Checklist
+
 
 Before entering into Render, verify each value:
 
@@ -102,8 +126,10 @@ Before entering into Render, verify each value:
 - [ ] `GEMINI_API_KEY` starts with `AIzaSy`
 - [ ] `GOOGLE_API_KEY` starts with `AIzaSy`
 - [ ] `ADMIN_API_KEY` is at least 32 characters long
+- [ ] `ALLOWED_ORIGINS` includes your production URL (comma-separated, no spaces)
 - [ ] All values are copied exactly (no extra spaces)
 - [ ] All values are kept private (never commit to Git)
+
 
 ---
 
