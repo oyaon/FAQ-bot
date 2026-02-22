@@ -1,8 +1,8 @@
-import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { AdminController } from './admin.controller';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
-import { BasicAuthMiddleware } from '../auth/basic-auth.middleware';
+import { SupabaseModule } from '../supabase/supabase.module';
 
 @Module({
   imports: [
@@ -10,12 +10,9 @@ import { BasicAuthMiddleware } from '../auth/basic-auth.middleware';
       rootPath: join(__dirname, '..', '..', 'public/admin'),
       serveRoot: '/admin',
     }),
+    SupabaseModule,
   ],
   controllers: [AdminController],
 })
-export class AdminModule implements NestModule {
-  configure(consumer: MiddlewareConsumer) {
-    consumer.apply(BasicAuthMiddleware).forRoutes('/admin');
-  }
-}
+export class AdminModule {}
 

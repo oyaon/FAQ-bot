@@ -9,6 +9,7 @@ import { AppService } from './app.service';
 import { AdminModule } from './admin/admin.module';
 import { SupabaseModule } from './supabase/supabase.module';
 import { ConversationModule } from './conversation/conversation.module';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { ConversationModule } from './conversation/conversation.module';
     MetricsModule,
     ConversationModule,
     AdminModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [

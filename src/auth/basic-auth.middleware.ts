@@ -3,7 +3,7 @@ import {
   NestMiddleware,
   UnauthorizedException,
 } from '@nestjs/common';
-import * as basicAuth from 'basic-auth';
+import basicAuth from 'basic-auth';
 import { ConfigService } from '@nestjs/config';
 import { Request, Response, NextFunction } from 'express';
 

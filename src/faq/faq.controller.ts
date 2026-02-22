@@ -124,6 +124,7 @@ export class FaqController {
         responseTime,
         llmUsed,
         contextUsed,
+        topResult?.category,
       );
 
       // Store the exchange in session

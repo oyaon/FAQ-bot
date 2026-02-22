@@ -58,6 +58,7 @@ export class FaqService {
     responseTimeMs: number,
     llmUsed: boolean = false,
     contextUsed: boolean = false,
+    matchedFaqCategory?: string,
   ): Promise<number | null> {
     try {
       const supabase = this.supabaseService.getClient();
@@ -78,6 +79,7 @@ export class FaqService {
           response_time_ms: responseTimeMs,
           llm_used: llmUsed,
           context_used: contextUsed,
+          matched_faq_category: matchedFaqCategory || null,
         })
         .select('id')
         .single();

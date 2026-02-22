@@ -9,5 +9,6 @@ import { LlmModule } from '../llm/llm.module';
   imports: [EmbeddingModule, ConversationModule, LlmModule],
   providers: [FaqService],
   controllers: [FaqController],
+  exports: [FaqService],
 })
 export class FaqModule {}
