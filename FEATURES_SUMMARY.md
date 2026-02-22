@@ -177,15 +177,17 @@ npm run build
 
 ## Environment Variables
 
-Ensure these are in your `.env`:
+Ensure these are in your `.env` (get actual values from the ENV_VARIABLES_CHECKLIST.md):
 
 ```env
-SUPABASE_URL=https://mzessdfkbbcfvvuqqcvu.supabase.co
-SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-ADMIN_API_KEY=f47151431d5a32aa086cef79ad444aad
-GEMINI_API_KEY=AIzaSyDgv0Q3clfRyWpoQmCdn0ElFMPX4oG32_o
+SUPABASE_URL=https://your-project-id.supabase.co
+SUPABASE_ANON_KEY=your-supabase-anon-key-from-dashboard
+ADMIN_API_KEY=your-secure-random-key-min-32-characters
+GEMINI_API_KEY=your-gemini-api-key-from-google-ai-studio
 PORT=3000
 ```
+
+⚠️ **SECURITY**: Never commit actual API keys to GitHub. Use `.env` file and add it to `.gitignore`.
 
 ---
 
