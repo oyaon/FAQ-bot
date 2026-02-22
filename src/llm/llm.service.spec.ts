@@ -10,7 +10,7 @@ describe('LlmService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    
+
     mockFetch = jest.fn();
     global.fetch = mockFetch;
 
@@ -39,7 +39,9 @@ describe('LlmService', () => {
             {
               content: {
                 parts: [
-                  { text: 'This is a synthesized answer based on the FAQs provided.' },
+                  {
+                    text: 'This is a synthesized answer based on the FAQs provided.',
+                  },
                 ],
               },
             },
@@ -51,12 +53,18 @@ describe('LlmService', () => {
 
       const userQuery = 'What is your return policy?';
       const relevantFaqs = [
-        { question: 'What is return policy?', answer: '30 days', similarity: 0.9 },
+        {
+          question: 'What is return policy?',
+          answer: '30 days',
+          similarity: 0.9,
+        },
       ];
 
       const result = await service.synthesizeAnswer(userQuery, relevantFaqs);
 
-      expect(result).toBe('This is a synthesized answer based on the FAQs provided.');
+      expect(result).toBe(
+        'This is a synthesized answer based on the FAQs provided.',
+      );
       expect(mockFetch).toHaveBeenCalled();
     });
 
@@ -64,17 +72,25 @@ describe('LlmService', () => {
       const mockResponse = {
         ok: true,
         json: jest.fn().mockResolvedValue({
-          candidates: [{ content: { parts: [{ text: 'Answer with history' }] } }],
+          candidates: [
+            { content: { parts: [{ text: 'Answer with history' }] } },
+          ],
         }),
       };
 
       mockFetch.mockResolvedValue(mockResponse);
 
       const userQuery = 'Tell me more';
-      const relevantFaqs = [{ question: 'Test?', answer: 'Answer', similarity: 0.8 }];
+      const relevantFaqs = [
+        { question: 'Test?', answer: 'Answer', similarity: 0.8 },
+      ];
       const conversationHistory = ['Hello', 'Hi there'];
 
-      await service.synthesizeAnswer(userQuery, relevantFaqs, conversationHistory);
+      await service.synthesizeAnswer(
+        userQuery,
+        relevantFaqs,
+        conversationHistory,
+      );
 
       expect(mockFetch).toHaveBeenCalled();
       const fetchCall = mockFetch.mock.calls[0];
@@ -85,10 +101,10 @@ describe('LlmService', () => {
     // Edge Cases
     it('should return null when no API key is configured', async () => {
       delete process.env.GEMINI_API_KEY;
-      
+
       // Re-create service without API key
       const newService = new LlmService();
-      
+
       const result = await newService.synthesizeAnswer('test', []);
 
       expect(result).toBeNull();
@@ -97,7 +113,7 @@ describe('LlmService', () => {
     it('should return null when API key is empty string', async () => {
       // Override the API key property directly
       Object.defineProperty(service, 'apiKey', { value: '' });
-      
+
       const result = await service.synthesizeAnswer('test', []);
 
       expect(result).toBeNull();
@@ -148,7 +164,9 @@ describe('LlmService', () => {
 
       mockFetch.mockResolvedValue(mockResponse);
 
-      const result = await service.synthesizeAnswer('test', [{ question: 'Q', answer: 'A', similarity: 0.9 }]);
+      const result = await service.synthesizeAnswer('test', [
+        { question: 'Q', answer: 'A', similarity: 0.9 },
+      ]);
 
       expect(result).toBeNull();
     });
@@ -161,7 +179,9 @@ describe('LlmService', () => {
 
       mockFetch.mockResolvedValue(mockResponse);
 
-      const result = await service.synthesizeAnswer('test', [{ question: 'Q', answer: 'A', similarity: 0.9 }]);
+      const result = await service.synthesizeAnswer('test', [
+        { question: 'Q', answer: 'A', similarity: 0.9 },
+      ]);
 
       expect(result).toBeNull();
     });
@@ -174,7 +194,9 @@ describe('LlmService', () => {
 
       mockFetch.mockResolvedValue(mockResponse);
 
-      const result = await service.synthesizeAnswer('test', [{ question: 'Q', answer: 'A', similarity: 0.9 }]);
+      const result = await service.synthesizeAnswer('test', [
+        { question: 'Q', answer: 'A', similarity: 0.9 },
+      ]);
 
       expect(result).toBeNull();
     });
@@ -182,7 +204,9 @@ describe('LlmService', () => {
     it('should return null when fetch throws an error', async () => {
       mockFetch.mockRejectedValue(new Error('Network error'));
 
-      const result = await service.synthesizeAnswer('test', [{ question: 'Q', answer: 'A', similarity: 0.9 }]);
+      const result = await service.synthesizeAnswer('test', [
+        { question: 'Q', answer: 'A', similarity: 0.9 },
+      ]);
 
       expect(result).toBeNull();
     });
@@ -197,7 +221,9 @@ describe('LlmService', () => {
 
       mockFetch.mockResolvedValue(mockResponse);
 
-      const result = await service.synthesizeAnswer('test', [{ question: 'Q', answer: 'A', similarity: 0.9 }]);
+      const result = await service.synthesizeAnswer('test', [
+        { question: 'Q', answer: 'A', similarity: 0.9 },
+      ]);
 
       expect(result).toBeNull();
     });
@@ -205,7 +231,9 @@ describe('LlmService', () => {
     it('should handle network timeout', async () => {
       mockFetch.mockRejectedValue(new Error('Request timeout'));
 
-      const result = await service.synthesizeAnswer('test', [{ question: 'Q', answer: 'A', similarity: 0.9 }]);
+      const result = await service.synthesizeAnswer('test', [
+        { question: 'Q', answer: 'A', similarity: 0.9 },
+      ]);
 
       expect(result).toBeNull();
     });
@@ -221,4 +249,3 @@ describe('LlmService', () => {
     });
   });
 });
-

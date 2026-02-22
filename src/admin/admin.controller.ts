@@ -1,4 +1,12 @@
-import { Controller, Get, Query, Res, BadRequestException, UseGuards, Redirect } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Query,
+  Res,
+  BadRequestException,
+  UseGuards,
+  Redirect,
+} from '@nestjs/common';
 import type { Response } from 'express';
 import { parse } from 'json2csv';
 import { SupabaseService } from '../supabase/supabase.service';
@@ -35,10 +43,14 @@ export class AdminController {
   ) {
     // Validate date parameters
     if (startDate && !this.isValidDate(startDate)) {
-      throw new BadRequestException('Invalid startDate format. Use ISO 8601 format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)');
+      throw new BadRequestException(
+        'Invalid startDate format. Use ISO 8601 format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)',
+      );
     }
     if (endDate && !this.isValidDate(endDate)) {
-      throw new BadRequestException('Invalid endDate format. Use ISO 8601 format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)');
+      throw new BadRequestException(
+        'Invalid endDate format. Use ISO 8601 format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)',
+      );
     }
 
     const supabase = this.supabaseService.getClient();
@@ -114,16 +126,26 @@ export class AdminController {
     if (parsedPage < 1 || !Number.isInteger(parsedPage)) {
       throw new BadRequestException('page must be a positive integer');
     }
-    if (parsedLimit < 1 || parsedLimit > 100 || !Number.isInteger(parsedLimit)) {
-      throw new BadRequestException('limit must be an integer between 1 and 100');
+    if (
+      parsedLimit < 1 ||
+      parsedLimit > 100 ||
+      !Number.isInteger(parsedLimit)
+    ) {
+      throw new BadRequestException(
+        'limit must be an integer between 1 and 100',
+      );
     }
 
     // Validate date parameters
     if (startDate && !this.isValidDate(startDate)) {
-      throw new BadRequestException('Invalid startDate format. Use ISO 8601 format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)');
+      throw new BadRequestException(
+        'Invalid startDate format. Use ISO 8601 format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)',
+      );
     }
     if (endDate && !this.isValidDate(endDate)) {
-      throw new BadRequestException('Invalid endDate format. Use ISO 8601 format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)');
+      throw new BadRequestException(
+        'Invalid endDate format. Use ISO 8601 format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)',
+      );
     }
 
     const supabase = this.supabaseService.getClient();
@@ -164,7 +186,9 @@ export class AdminController {
     const { data, error } = await dataQuery;
 
     if (error) {
-      throw new BadRequestException(`Failed to fetch low-confidence queries: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to fetch low-confidence queries: ${error.message}`,
+      );
     }
 
     return {
@@ -187,18 +211,20 @@ export class AdminController {
   ) {
     // Validate date parameters
     if (startDate && !this.isValidDate(startDate)) {
-      throw new BadRequestException('Invalid startDate format. Use ISO 8601 format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)');
+      throw new BadRequestException(
+        'Invalid startDate format. Use ISO 8601 format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)',
+      );
     }
     if (endDate && !this.isValidDate(endDate)) {
-      throw new BadRequestException('Invalid endDate format. Use ISO 8601 format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)');
+      throw new BadRequestException(
+        'Invalid endDate format. Use ISO 8601 format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)',
+      );
     }
 
     const supabase = this.supabaseService.getClient();
 
     // Query all query logs and aggregate by category
-    let query = supabase
-      .from('query_logs')
-      .select('matched_faq_category');
+    let query = supabase.from('query_logs').select('matched_faq_category');
 
     if (startDate) {
       query = query.gte('created_at', startDate);
@@ -210,7 +236,9 @@ export class AdminController {
     const { data, error } = await query;
 
     if (error) {
-      throw new BadRequestException(`Failed to fetch category data: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to fetch category data: ${error.message}`,
+      );
     }
 
     // Aggregate counts by category

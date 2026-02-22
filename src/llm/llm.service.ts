@@ -81,7 +81,6 @@ Answer (friendly, direct, using only the FAQs above):`;
           contents: [
             {
               parts: [{ text: prompt }],
-
             },
           ],
           generationConfig: {

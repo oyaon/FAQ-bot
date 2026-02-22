@@ -16,10 +16,12 @@ import { ChatModule } from './chat/chat.module';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    ThrottlerModule.forRoot([{
-      ttl: 60000, // 1 minute
-      limit: 30,  // 30 requests per minute per IP
-    }]),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000, // 1 minute
+        limit: 30, // 30 requests per minute per IP
+      },
+    ]),
     SupabaseModule,
     FaqModule,
     MetricsModule,

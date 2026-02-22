@@ -121,10 +121,7 @@ export class FaqService {
         updateData.feedback_type = feedbackType;
       }
 
-      await supabase
-        .from('query_logs')
-        .update(updateData)
-        .eq('id', queryLogId);
+      await supabase.from('query_logs').update(updateData).eq('id', queryLogId);
 
       this.logger.log(`Feedback saved for query log ${queryLogId}`);
     } catch (err) {

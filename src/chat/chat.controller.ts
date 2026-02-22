@@ -22,7 +22,10 @@ export class ChatController {
     }
 
     // Process the message through the chat service
-    const response = await this.chatService.processMessage(sessionId, dto.message);
+    const response = await this.chatService.processMessage(
+      sessionId,
+      dto.message,
+    );
 
     return response;
   }

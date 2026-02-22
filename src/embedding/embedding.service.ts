@@ -10,7 +10,10 @@ export class EmbeddingService implements OnModuleInit {
 
   async onModuleInit() {
     this.logger.log('Loading embedding model...');
-    this.embedder = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
+    this.embedder = await pipeline(
+      'feature-extraction',
+      'Xenova/all-MiniLM-L6-v2',
+    );
     this.isReady = true;
     this.logger.log('Embedding model ready!');
   }
@@ -28,7 +31,10 @@ export class EmbeddingService implements OnModuleInit {
     }
 
     // Generate new embedding
-    const output = await this.embedder(text, { pooling: 'mean', normalize: true });
+    const output = await this.embedder(text, {
+      pooling: 'mean',
+      normalize: true,
+    });
     const embedding = Array.from(output.data as number[]);
 
     // Store in cache (limit size to avoid memory leak)

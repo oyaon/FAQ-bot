@@ -54,8 +54,18 @@ describe('FaqService', () => {
     it('should return search results when vector search succeeds', async () => {
       const embedding = [0.1, 0.2, 0.3];
       const mockResults = [
-        { id: 1, question: 'What is your return policy?', answer: '30 days', similarity: 0.9 },
-        { id: 2, question: 'How do I return?', answer: 'Contact support', similarity: 0.85 },
+        {
+          id: 1,
+          question: 'What is your return policy?',
+          answer: '30 days',
+          similarity: 0.9,
+        },
+        {
+          id: 2,
+          question: 'How do I return?',
+          answer: 'Contact support',
+          similarity: 0.85,
+        },
       ];
 
       mockSupabaseClient.rpc.mockResolvedValue({
@@ -75,7 +85,9 @@ describe('FaqService', () => {
 
     it('should use custom threshold and limit', async () => {
       const embedding = [0.1, 0.2, 0.3];
-      const mockResults = [{ id: 1, question: 'Test', answer: 'Answer', similarity: 0.7 }];
+      const mockResults = [
+        { id: 1, question: 'Test', answer: 'Answer', similarity: 0.7 },
+      ];
 
       mockSupabaseClient.rpc.mockResolvedValue({
         data: mockResults,
@@ -160,7 +172,12 @@ describe('FaqService', () => {
     it('should return search results when keyword search succeeds', async () => {
       const query = 'return policy';
       const mockResults = [
-        { id: 1, question: 'What is your return policy?', answer: '30 days', category: 'returns' },
+        {
+          id: 1,
+          question: 'What is your return policy?',
+          answer: '30 days',
+          category: 'returns',
+        },
       ];
 
       mockSupabaseClient.from.mockReturnValue(createMockFrom(mockResults));
@@ -172,7 +189,9 @@ describe('FaqService', () => {
 
     it('should use custom limit', async () => {
       const query = 'test';
-      const mockResults = [{ id: 1, question: 'Test', answer: 'Answer', category: 'test' }];
+      const mockResults = [
+        { id: 1, question: 'Test', answer: 'Answer', category: 'test' },
+      ];
 
       mockSupabaseClient.from.mockReturnValue(createMockFrom(mockResults));
 
@@ -195,7 +214,9 @@ describe('FaqService', () => {
     it('should return empty array on Supabase error', async () => {
       const query = 'test';
 
-      mockSupabaseClient.from.mockReturnValue(createMockFrom(null, { message: 'Query error' }));
+      mockSupabaseClient.from.mockReturnValue(
+        createMockFrom(null, { message: 'Query error' }),
+      );
 
       const result = await service.searchByKeyword(query);
 
@@ -321,7 +342,8 @@ describe('FaqService', () => {
 
       await service.saveFeedback(123, true, 4);
 
-      const updateCall = (mockSupabaseClient.from as jest.Mock).mock.results[0].value.update.mock.calls[0][0];
+      const updateCall =
+        mockSupabaseClient.from.mock.results[0].value.update.mock.calls[0][0];
       expect(updateCall).toHaveProperty('feedback', true);
       expect(updateCall).toHaveProperty('rating', 4);
     });
@@ -336,7 +358,8 @@ describe('FaqService', () => {
 
       await service.saveFeedback(123, true, 0);
 
-      const updateCall = (mockSupabaseClient.from as jest.Mock).mock.results[0].value.update.mock.calls[0][0];
+      const updateCall =
+        mockSupabaseClient.from.mock.results[0].value.update.mock.calls[0][0];
       expect(updateCall).not.toHaveProperty('rating');
     });
 
@@ -349,7 +372,8 @@ describe('FaqService', () => {
 
       await service.saveFeedback(123, true, 6);
 
-      const updateCall = (mockSupabaseClient.from as jest.Mock).mock.results[0].value.update.mock.calls[0][0];
+      const updateCall =
+        mockSupabaseClient.from.mock.results[0].value.update.mock.calls[0][0];
       expect(updateCall).not.toHaveProperty('rating');
     });
 
@@ -362,7 +386,8 @@ describe('FaqService', () => {
 
       await service.saveFeedback(123, true, undefined, '  Great service!  ');
 
-      const updateCall = (mockSupabaseClient.from as jest.Mock).mock.results[0].value.update.mock.calls[0][0];
+      const updateCall =
+        mockSupabaseClient.from.mock.results[0].value.update.mock.calls[0][0];
       expect(updateCall).toHaveProperty('feedback_text', 'Great service!');
     });
 
@@ -375,7 +400,8 @@ describe('FaqService', () => {
 
       await service.saveFeedback(123, true, undefined, '   ');
 
-      const updateCall = (mockSupabaseClient.from as jest.Mock).mock.results[0].value.update.mock.calls[0][0];
+      const updateCall =
+        mockSupabaseClient.from.mock.results[0].value.update.mock.calls[0][0];
       expect(updateCall).not.toHaveProperty('feedback_text');
     });
 
@@ -387,9 +413,7 @@ describe('FaqService', () => {
         }),
       } as never);
 
-      await expect(
-        service.saveFeedback(123, true, 5),
-      ).resolves.not.toThrow();
+      await expect(service.saveFeedback(123, true, 5)).resolves.not.toThrow();
     });
   });
 
@@ -415,4 +439,3 @@ describe('FaqService', () => {
     });
   });
 });
-

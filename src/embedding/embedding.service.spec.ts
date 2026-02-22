@@ -23,7 +23,7 @@ describe('EmbeddingService', () => {
 
     service = module.get<EmbeddingService>(EmbeddingService);
     // Wait for onModuleInit to complete
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 50));
   });
 
   afterEach(() => {
@@ -46,7 +46,7 @@ describe('EmbeddingService', () => {
 
       const result = await service.generate(text);
 
-      result.forEach(value => {
+      result.forEach((value) => {
         expect(typeof value).toBe('number');
       });
     });
@@ -83,7 +83,9 @@ describe('EmbeddingService', () => {
       // Create service without initialization
       const newService = new EmbeddingService();
 
-      await expect(newService.generate('test')).rejects.toThrow('Model not ready');
+      await expect(newService.generate('test')).rejects.toThrow(
+        'Model not ready',
+      );
     });
   });
 
@@ -103,4 +105,3 @@ describe('EmbeddingService', () => {
     });
   });
 });
-

@@ -28,7 +28,10 @@ export class ChatService {
   /**
    * Retrieve the last N messages from a session
    */
-  async getConversationHistory(sessionId: string, limit: number = 5): Promise<ConversationMessage[]> {
+  async getConversationHistory(
+    sessionId: string,
+    limit: number = 5,
+  ): Promise<ConversationMessage[]> {
     try {
       const supabase = this.supabaseService.getClient();
       const { data, error } = await supabase
@@ -39,7 +42,9 @@ export class ChatService {
         .limit(limit);
 
       if (error) {
-        this.logger.warn(`Failed to load conversation history: ${error.message}`);
+        this.logger.warn(
+          `Failed to load conversation history: ${error.message}`,
+        );
         return [];
       }
 
@@ -53,7 +58,11 @@ export class ChatService {
   /**
    * Save a message to the conversation_messages table
    */
-  async saveMessage(sessionId: string, role: 'user' | 'assistant', content: string): Promise<ConversationMessage | null> {
+  async saveMessage(
+    sessionId: string,
+    role: 'user' | 'assistant',
+    content: string,
+  ): Promise<ConversationMessage | null> {
     try {
       const supabase = this.supabaseService.getClient();
       const { data, error } = await supabase
@@ -110,17 +119,23 @@ export class ChatService {
 
     try {
       // 1. Retrieve conversation history
-      const conversationHistory = await this.getConversationHistory(sessionId, 5);
+      const conversationHistory = await this.getConversationHistory(
+        sessionId,
+        5,
+      );
 
       // 2. Build context string from history
       const historyStrings = conversationHistory
-        .map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
+        .map(
+          (msg) =>
+            `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`,
+        )
         .join('\n');
 
       // 3. Rewrite query with context
       const rewrittenQuery = this.contextRewriter.rewriteWithContext(
         userMessage,
-        conversationHistory.map(msg => ({
+        conversationHistory.map((msg) => ({
           role: msg.role,
           content: msg.content,
           timestamp: new Date(msg.created_at || new Date()),
@@ -150,7 +165,6 @@ export class ChatService {
         answer = topResult.answer;
         similarity = Math.round(topResult.similarity * 100);
         topFaqId = topResult.id;
-
       } else if (topResult && topResult.similarity >= 0.5) {
         // MEDIUM confidence - use LLM to synthesize
         route = 'llm_synthesis';
@@ -158,8 +172,8 @@ export class ChatService {
         topFaqId = topResult.id;
 
         const faqContext = results
-          .filter(r => r.similarity >= 0.4)
-          .map(r => ({
+          .filter((r) => r.similarity >= 0.4)
+          .map((r) => ({
             question: r.question,
             answer: r.answer,
             similarity: r.similarity,
@@ -179,7 +193,6 @@ export class ChatService {
           answer = topResult.answer;
           route = 'direct_fallback';
         }
-
       } else {
         // LOW confidence - graceful fallback
         route = 'fallback';
@@ -212,10 +225,12 @@ export class ChatService {
         sessionId,
         llmUsed,
         queryLogId,
-        topResult: topResult ? {
-          question: topResult.question,
-          category: topResult.category,
-        } : null,
+        topResult: topResult
+          ? {
+              question: topResult.question,
+              category: topResult.category,
+            }
+          : null,
       };
     } catch (error) {
       this.logger.error('Error processing chat message:', error);

@@ -15,4 +15,3 @@ import { SupabaseModule } from '../supabase/supabase.module';
   controllers: [AdminController],
 })
 export class AdminModule {}
-

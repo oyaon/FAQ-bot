@@ -8,7 +8,13 @@ import { SupabaseModule } from '../supabase/supabase.module';
 import { ConversationModule } from '../conversation/conversation.module';
 
 @Module({
-  imports: [FaqModule, EmbeddingModule, LlmModule, SupabaseModule, ConversationModule],
+  imports: [
+    FaqModule,
+    EmbeddingModule,
+    LlmModule,
+    SupabaseModule,
+    ConversationModule,
+  ],
   providers: [ChatService],
   controllers: [ChatController],
 })

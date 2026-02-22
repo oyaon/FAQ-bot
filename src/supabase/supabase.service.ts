@@ -27,7 +27,8 @@ export class SupabaseService {
     try {
       return await queryFn(this.supabase);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(
         `Supabase query error on table ${table}: ${errorMessage}`,
       );
@@ -35,4 +36,3 @@ export class SupabaseService {
     }
   }
 }
-

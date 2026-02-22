@@ -33,13 +33,19 @@ export class ConversationService implements OnModuleInit {
 
   private async loadRecentSessions() {
     try {
-      const { data, error } = await this.supabaseService.getClient()
+      const { data, error } = await this.supabaseService
+        .getClient()
         .from('sessions')
         .select('*')
-        .gte('last_active_at', new Date(Date.now() - 60 * 60 * 1000).toISOString());
+        .gte(
+          'last_active_at',
+          new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+        );
 
       if (error) {
-        this.logger.warn('Could not load sessions from Supabase, using in-memory only');
+        this.logger.warn(
+          'Could not load sessions from Supabase, using in-memory only',
+        );
         return;
       }
 
@@ -88,11 +94,12 @@ export class ConversationService implements OnModuleInit {
   async getSession(sessionId: string): Promise<Session | null> {
     // Try in-memory first
     let session = this.sessions.get(sessionId);
-    
+
     if (!session) {
       // Try loading from Supabase
       try {
-        const { data, error } = await this.supabaseService.getClient()
+        const { data, error } = await this.supabaseService
+          .getClient()
           .from('sessions')
           .select('*')
           .eq('id', sessionId)
@@ -115,10 +122,11 @@ export class ConversationService implements OnModuleInit {
     if (!session) return null;
 
     session.lastActiveAt = new Date();
-    
+
     // Update last_active_at in Supabase
     try {
-      await this.supabaseService.getClient()
+      await this.supabaseService
+        .getClient()
         .from('sessions')
         .update({ last_active_at: session.lastActiveAt.toISOString() })
         .eq('id', sessionId);
@@ -129,9 +137,13 @@ export class ConversationService implements OnModuleInit {
     return session;
   }
 
-  async addMessage(sessionId: string, role: 'user' | 'assistant', content: string): Promise<void> {
+  async addMessage(
+    sessionId: string,
+    role: 'user' | 'assistant',
+    content: string,
+  ): Promise<void> {
     let session = this.sessions.get(sessionId);
-    
+
     if (!session) {
       // Try to load from Supabase
       await this.getSession(sessionId);
@@ -164,13 +176,14 @@ export class ConversationService implements OnModuleInit {
 
     // Persist to Supabase
     try {
-      await this.supabaseService.getClient()
-        .from('sessions')
-        .upsert({
+      await this.supabaseService.getClient().from('sessions').upsert(
+        {
           id: sessionId,
           messages: session.messages,
           last_active_at: session.lastActiveAt.toISOString(),
-        }, { onConflict: 'id' });
+        },
+        { onConflict: 'id' },
+      );
     } catch (error) {
       this.logger.warn('Failed to persist message to Supabase:', error);
     }
@@ -197,7 +210,8 @@ export class ConversationService implements OnModuleInit {
     // Delete from Supabase
     if (toDelete.length > 0) {
       try {
-        await this.supabaseService.getClient()
+        await this.supabaseService
+          .getClient()
           .from('sessions')
           .delete()
           .in('id', toDelete);

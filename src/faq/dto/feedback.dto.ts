@@ -1,4 +1,10 @@
-﻿import { IsNumber, IsBoolean, IsOptional, IsString, IsIn } from 'class-validator';
+﻿import {
+  IsNumber,
+  IsBoolean,
+  IsOptional,
+  IsString,
+  IsIn,
+} from 'class-validator';
 
 export class FeedbackDto {
   @IsNumber()
@@ -19,5 +25,3 @@ export class FeedbackDto {
   @IsIn(['accurate', 'incomplete', 'unclear', 'irrelevant', 'outdated'])
   feedbackType?: string; // Type of feedback
 }
-
-

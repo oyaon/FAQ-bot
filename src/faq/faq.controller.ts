@@ -72,7 +72,6 @@ export class FaqController {
         answer = topResult.answer;
         similarity = Math.round(topResult.similarity * 100);
         topFaqId = topResult.id;
-
       } else if (topResult && topResult.similarity >= 0.5) {
         // MEDIUM confidence - use LLM to synthesize
         route = 'llm_synthesis';
@@ -80,16 +79,14 @@ export class FaqController {
         topFaqId = topResult.id;
 
         const faqContext = results
-          .filter(r => r.similarity >= 0.4)
-          .map(r => ({
+          .filter((r) => r.similarity >= 0.4)
+          .map((r) => ({
             question: r.question,
             answer: r.answer,
             similarity: r.similarity,
           }));
 
-        const historyStrings = history.map(
-          m => `${m.role}: ${m.content}`,
-        );
+        const historyStrings = history.map((m) => `${m.role}: ${m.content}`);
 
         const synthesized = await this.llmService.synthesizeAnswer(
           query,
@@ -105,7 +102,6 @@ export class FaqController {
           answer = topResult.answer;
           route = 'direct_fallback';
         }
-
       } else {
         // LOW confidence - graceful fallback
         route = 'fallback';
@@ -140,10 +136,12 @@ export class FaqController {
         rewrittenQuery: contextUsed ? rewrittenQuery : undefined,
         llmUsed,
         queryLogId,
-        topResult: topResult ? {
-          question: topResult.question,
-          category: topResult.category,
-        } : null,
+        topResult: topResult
+          ? {
+              question: topResult.question,
+              category: topResult.category,
+            }
+          : null,
       };
     } catch (error) {
       // Model not ready or other error
