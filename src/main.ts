@@ -43,7 +43,7 @@ async function bootstrap() {
         directives: {
           defaultSrc: ["'self'"],
           scriptSrc: ["'self'", "'unsafe-inline'"],
-          scriptSrcAttr: ["'self'", "'unsafe-inline'"], // Allow inline event handlers
+          scriptSrcAttr: ["'self'", "'unsafe-inline'", "'unsafe-hashes'"], // Allow inline event handlers
           styleSrc: ["'self'", "'unsafe-inline'"],
           imgSrc: ["'self'", 'data:', 'https:'],
           connectSrc: ["'self'"],
