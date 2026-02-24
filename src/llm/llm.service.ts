@@ -12,6 +12,7 @@ export class LlmService {
   private readonly apiKey = process.env.GEMINI_API_KEY;
   private readonly apiUrl =
     'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+  private readonly requestTimeout = 30000; // 30 seconds
 
   async synthesizeAnswer(
     userQuery: string,
@@ -71,6 +72,9 @@ Customer question: "${userQuery}"
 Answer (friendly, direct, using only the FAQs above):`;
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), this.requestTimeout);
+
       const response = await fetch(this.apiUrl, {
         method: 'POST',
         headers: {
@@ -88,15 +92,18 @@ Answer (friendly, direct, using only the FAQs above):`;
             maxOutputTokens: 300,
           },
         }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const error = await response.text();
-        this.logger.error(`Gemini API error: ${error}`);
+        this.logger.error(`Gemini API error: ${response.status} - ${error}`);
         return null;
       }
 
-      const data = await response.json();
+      const data = await response.json() as any;
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
       if (!text) {
@@ -106,7 +113,11 @@ Answer (friendly, direct, using only the FAQs above):`;
 
       return text.trim();
     } catch (error) {
-      this.logger.error(`LLM synthesis failed: ${error.message}`);
+      if (error instanceof Error && error.name === 'AbortError') {
+        this.logger.error('LLM API request timeout after 30s');
+      } else {
+        this.logger.error(`LLM synthesis failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
       return null;
     }
   }
