@@ -42,8 +42,8 @@ async function bootstrap() {
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
-          scriptSrc: ["'self'"],
-          scriptSrcAttr: ["'self'"], // Allow inline event handlers like onclick
+          scriptSrc: ["'self'", "'unsafe-inline'"],
+          scriptSrcAttr: ["'self'", "'unsafe-inline'"], // Allow inline event handlers
           styleSrc: ["'self'", "'unsafe-inline'"],
           imgSrc: ["'self'", 'data:', 'https:'],
           connectSrc: ["'self'"],
