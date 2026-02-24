@@ -136,18 +136,21 @@ export class ContextRewriterService {
       'account management': ['account', 'password', 'login', 'sign', 'profile'],
       orders: ['order', 'purchase', 'buy', 'cancel'],
       'product information': ['product', 'item', 'size', 'color', 'stock'],
+      warranty: ['warranty', 'guarantee', 'defect', 'broken'],
+      'damage and defects': ['damage', 'defect', 'broken', 'cracked', 'faulty'],
     };
 
     const combined =
       `${exchange.userQuery} ${exchange.botResponse}`.toLowerCase();
 
     for (const [topic, keywords] of Object.entries(topicPatterns)) {
-      if (keywords.some((kw) => combined.includes(kw))) {
-        return topic;
+      for (const keyword of keywords) {
+        if (combined.includes(keyword)) {
+          return topic;
+        }
       }
     }
 
-    // Fallback: use the original question as context
-    return exchange.userQuery;
+    return null;
   }
 }

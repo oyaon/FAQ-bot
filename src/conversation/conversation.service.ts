@@ -18,7 +18,6 @@ export interface Session {
 @Injectable()
 export class ConversationService implements OnModuleInit {
   private readonly logger = new Logger(ConversationService.name);
-  // In-memory cache for fast access
   private sessions = new Map<string, Session>();
 
   // Clean up old sessions every 30 minutes

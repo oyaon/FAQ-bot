@@ -14,15 +14,17 @@ export class FaqService {
   async searchByVector(embedding: number[], threshold = 0.5, limit = 3) {
     try {
       const supabase = this.supabaseService.getClient();
-      const { data, error } = await supabase.rpc('match_faq', {
+      const { data, error } = await supabase.rpc('search_faqs', {
         query_embedding: embedding,
-        match_threshold: threshold,
+        similarity_threshold: threshold,
         match_count: limit,
       });
+
       if (error) {
         this.logger.error('Vector search failed:', error.message);
         return [];
       }
+
       return data || [];
     } catch (err) {
       this.logger.error('Unexpected error in searchByVector:', err);
@@ -105,25 +107,34 @@ export class FaqService {
   ) {
     try {
       const supabase = this.supabaseService.getClient();
-      const updateData: any = {
-        feedback: helpful,
+      const updateData: Record<string, unknown> = {
+        helpful,
       };
 
       if (rating !== undefined && rating >= 1 && rating <= 5) {
         updateData.rating = rating;
       }
 
-      if (feedback && feedback.trim().length > 0) {
-        updateData.feedback_text = feedback;
+      const cleanFeedback = feedback?.trim();
+      if (cleanFeedback && cleanFeedback.length > 0) {
+        updateData.feedback_text = cleanFeedback;
       }
 
-      if (feedbackType) {
+      if (feedbackType && ['accurate', 'incomplete', 'unclear', 'irrelevant', 'outdated'].includes(feedbackType)) {
         updateData.feedback_type = feedbackType;
       }
 
-      await supabase.from('query_logs').update(updateData).eq('id', queryLogId);
+      const { error } = await supabase
+        .from('query_logs')
+        .update(updateData)
+        .eq('id', queryLogId);
 
-      this.logger.log(`Feedback saved for query log ${queryLogId}`);
+      if (error) {
+        this.logger.error('Failed to save feedback:', error.message);
+        return;
+      }
+
+      this.logger.debug(`Feedback saved for query ${queryLogId}`);
     } catch (err) {
       this.logger.error('Failed to save feedback:', err);
     }
