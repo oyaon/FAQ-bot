@@ -1,15 +1,18 @@
-﻿import { Controller, Post, Body, Get } from '@nestjs/common';
+﻿import { Controller, Post, Body, Get, Logger } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
+import { v4 as uuidv4 } from 'uuid';
 import { FaqService } from './faq.service';
 import { EmbeddingService } from '../embedding/embedding.service';
 import { SearchDto } from './dto/search.dto';
 import { FeedbackDto } from './dto/feedback.dto';
-import { ConversationService } from '../conversation/conversation.service';
+import { ConversationService, Message } from '../conversation/conversation.service';
 import { ContextRewriterService } from '../conversation/context-rewriter.service';
 import { LlmService } from '../llm/llm.service';
 
 @Controller()
 export class FaqController {
+  private readonly logger = new Logger(FaqController.name);
+
   constructor(
     private faqService: FaqService,
     private embeddingService: EmbeddingService,
@@ -31,14 +34,36 @@ export class FaqController {
       return { error: 'Query is required' };
     }
 
+    // Validate that required services are available
+    if (!this.conversationService) {
+      this.logger.error('ConversationService not injected properly');
+      return { 
+        route: 'error',
+        message: 'Service unavailable, please try again later',
+        error: 'ConversationService not initialized'
+      };
+    }
+
     // 1. Get or create session
     let sessionId = dto.sessionId;
-    if (!sessionId) {
-      sessionId = await this.conversationService.createSession();
+    try {
+      if (!sessionId) {
+        sessionId = await this.conversationService.createSession();
+      }
+    } catch (sessionError) {
+      this.logger.error('Failed to create session:', sessionError);
+      // Continue with ephemeral session (no persistence)
+      sessionId = uuidv4();
     }
 
     // 2. Get conversation history
-    const history = this.conversationService.getRecentContext(sessionId);
+    let history: Message[] = [];
+    try {
+      history = this.conversationService.getRecentContext(sessionId);
+    } catch (historyError) {
+      this.logger.warn('Failed to get conversation history:', historyError);
+      // Continue with empty history
+    }
 
     // 3. Rewrite query with context if needed
     const rewrittenQuery = this.contextRewriter.rewriteWithContext(
@@ -123,9 +148,14 @@ export class FaqController {
         topResult?.category,
       );
 
-      // Store the exchange in session
-      await this.conversationService.addMessage(sessionId, 'user', query);
-      await this.conversationService.addMessage(sessionId, 'assistant', answer);
+      // Store the exchange in session (fire and forget - don't fail the request if this fails)
+      try {
+        await this.conversationService.addMessage(sessionId, 'user', query);
+        await this.conversationService.addMessage(sessionId, 'assistant', answer);
+      } catch (msgError) {
+        this.logger.warn('Failed to store conversation message:', msgError);
+        // Continue - this is not critical
+      }
 
       return {
         answer,

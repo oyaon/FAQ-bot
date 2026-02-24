@@ -27,7 +27,6 @@ interface RouteStats {
 }
 
 @Controller('metrics')
-@UseGuards(ApiKeyGuard)
 export class MetricsController {
   constructor(private supabaseService: SupabaseService) { }
 

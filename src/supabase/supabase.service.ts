@@ -9,10 +9,21 @@ export class SupabaseService implements OnModuleDestroy {
   constructor() {
     const url = process.env.SUPABASE_URL;
     const key = process.env.SUPABASE_ANON_KEY;
-    if (!url || !key) {
-      this.logger.error('Missing Supabase credentials');
-      throw new Error('Supabase credentials not configured');
+    // Validate environment variables
+    const missingVars: string[] = [];
+    if (!url) {
+      missingVars.push('SUPABASE_URL');
     }
+    if (!key) {
+      missingVars.push('SUPABASE_ANON_KEY');
+    }
+    
+    if (missingVars.length > 0) {
+      this.logger.error(`Missing required environment variables: ${missingVars.join(', ')}`);
+      throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
+    }
+    
+    this.logger.debug('Initializing Supabase client');
     this.supabase = createClient(url, key) as SupabaseClient;
   }
 

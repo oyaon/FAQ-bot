@@ -42,10 +42,20 @@ async function bootstrap() {
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
-          scriptSrc: ["'self'", "'unsafe-inline'"],
-          scriptSrcAttr: ["'self'", "'unsafe-inline'", "'unsafe-hashes'"], // Allow inline event handlers
+          // Scripts: self + CDN (Chart.js)
+          // Removed: unsafe-eval (not needed), unsafe-hashes (not needed), unsafe-inline (using nonce approach)
+          scriptSrc: ["'self'", 'cdn.jsdelivr.net'],
+          // Script elements (like <script src="">)
+          scriptSrcElem: ["'self'", 'cdn.jsdelivr.net'],
+          // Script attributes (inline event handlers like onclick)
+          // Keep unsafe-inline for existing inline handlers in admin.js (addEventListener pattern)
+          scriptSrcAttr: ["'self'", "'unsafe-inline'"],
+          // Styles: self + inline styles (needed for dynamic styling)
           styleSrc: ["'self'", "'unsafe-inline'"],
+          // Images: self + data URLs + HTTPS
           imgSrc: ["'self'", 'data:', 'https:'],
+          // Connections: ONLY same origin (removed broad "https:")
+          // Frontend only calls internal APIs: /search, /feedback, /metrics
           connectSrc: ["'self'"],
           fontSrc: ["'self'"],
           objectSrc: ["'none'"],
@@ -55,6 +65,8 @@ async function bootstrap() {
           formAction: ["'self'"],
           frameAncestors: ["'none'"],
           upgradeInsecureRequests: [],
+          // CSP violation reporting
+          reportUri: ['/csp-report'],
         },
       },
     }),
@@ -95,3 +107,4 @@ bootstrap().catch((err) => {
   logger.error('Bootstrap failed:', err);
   process.exit(1);
 });
+
