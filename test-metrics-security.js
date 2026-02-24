@@ -38,7 +38,8 @@ async function runTests() {
   // Test 2: Request with valid API key (should succeed)
   console.log('Test 2: GET /metrics with valid API key');
   try {
-    const result2 = await makeRequest('/metrics', { 'x-api-key': 'change-me-in-production' });
+    const validKey = 'f47151431d5a32aa086cef79ad444aad';
+    const result2 = await makeRequest('/metrics', { 'x-api-key': validKey });
     console.log(`  Status: ${result2.status}`);
     console.log(`  Expected: 200 OK`);
     console.log(`  Result: ${result2.status === 200 ? '✅ PASS' : '❌ FAIL'}\n`);
