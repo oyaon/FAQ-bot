@@ -1,8 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 @Injectable()
-export class SupabaseService {
+export class SupabaseService implements OnModuleDestroy {
   private readonly logger = new Logger(SupabaseService.name);
   private supabase: SupabaseClient;
 
@@ -18,6 +18,12 @@ export class SupabaseService {
 
   getClient(): SupabaseClient {
     return this.supabase;
+  }
+
+  async onModuleDestroy() {
+    // Close any open connections
+    // Supabase client doesn't need explicit cleanup
+    // but this hook allows Jest to exit cleanly
   }
 
   async query(

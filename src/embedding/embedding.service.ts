@@ -1,8 +1,8 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { pipeline } from '@xenova/transformers';
 
 @Injectable()
-export class EmbeddingService implements OnModuleInit {
+export class EmbeddingService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(EmbeddingService.name);
   private extractor: any = null;
 
@@ -41,5 +41,10 @@ export class EmbeddingService implements OnModuleInit {
       this.logger.error('Failed to generate embedding:', error);
       throw error;
     }
+  }
+
+  async onModuleDestroy() {
+    this.extractor = null;
+    // this.cache.clear(); // Note: code from prompt suggests `this.cache.clear()` but it isn't defined here, leaving it out or I'll implement it if there's a cache
   }
 }

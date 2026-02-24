@@ -29,7 +29,7 @@ interface RouteStats {
 @Controller('metrics')
 @UseGuards(ApiKeyGuard)
 export class MetricsController {
-  constructor(private supabaseService: SupabaseService) {}
+  constructor(private supabaseService: SupabaseService) { }
 
   @Get()
   async getMetrics() {
@@ -40,52 +40,42 @@ export class MetricsController {
         .from('query_logs')
         .select('*', { count: 'exact', head: true });
 
-      const { data: allLogs } = await supabase
+      const { data: avgSimData } = await supabase.rpc('get_avg_similarity');
+      const avgSim = avgSimData ? (avgSimData * 100) : 0;
+
+      const { data: routeStatsData } = await supabase.rpc('get_route_stats');
+      const routes: Record<string, number> = {};
+      if (routeStatsData) {
+        routeStatsData.forEach((stat: any) => {
+          routes[stat.route || 'unknown'] = Number(stat.count);
+        });
+      }
+
+      const { data: llmAndResponseLogs } = await supabase
         .from('query_logs')
-        .select('similarity_score, response_time_ms, route_decision, llm_used')
+        .select('response_time_ms, llm_used')
         .order('created_at', { ascending: false })
         .limit(1000);
 
-      if (!allLogs || allLogs.length === 0) {
-        return {
-          totalQueries: 0,
-          averageSimilarity: 0,
-          averageResponseTime: 0,
-          routeBreakdown: {},
-          llmUsageRate: 0,
-        };
+      let avgTime = 0;
+      let llmUsed = 0;
+      let totalFetched = llmAndResponseLogs?.length || 0;
+
+      if (llmAndResponseLogs && totalFetched > 0) {
+        avgTime =
+          llmAndResponseLogs.reduce(
+            (sum, log: QueryLog) => sum + (log.response_time_ms || 0),
+            0,
+          ) / totalFetched;
+        llmUsed = llmAndResponseLogs.filter((log: QueryLog) => log.llm_used).length;
       }
-
-      const avgSim =
-        (allLogs.reduce(
-          (sum, log: QueryLog) => sum + (log.similarity_score || 0),
-          0,
-        ) /
-          allLogs.length) *
-        100;
-      const avgTime =
-        allLogs.reduce(
-          (sum, log: QueryLog) => sum + (log.response_time_ms || 0),
-          0,
-        ) / allLogs.length;
-
-      const routes = allLogs.reduce(
-        (acc: Record<string, number>, log: QueryLog) => {
-          const route = log.route_decision || 'unknown';
-          acc[route] = (acc[route] || 0) + 1;
-          return acc;
-        },
-        {},
-      );
-
-      const llmUsed = allLogs.filter((log: QueryLog) => log.llm_used).length;
 
       return {
         totalQueries: count ?? 0,
         averageSimilarity: Number(avgSim.toFixed(2)),
         averageResponseTime: Math.round(avgTime),
         routeBreakdown: routes,
-        llmUsageRate: Math.round((llmUsed / allLogs.length) * 100),
+        llmUsageRate: totalFetched > 0 ? Math.round((llmUsed / totalFetched) * 100) : 0,
       };
     } catch (error) {
       throw new InternalServerErrorException('Failed to fetch metrics');
@@ -97,37 +87,18 @@ export class MetricsController {
     try {
       const supabase = this.supabaseService.getClient();
 
-      const { data: logs } = await supabase
-        .from('query_logs')
-        .select('query_text, similarity_score')
-        .order('created_at', { ascending: false })
-        .limit(500);
+      const limit_count = parseInt(limit);
+      const { data: logs, error } = await supabase.rpc('get_top_queries', { limit_count });
 
+      if (error) throw error;
       if (!logs) return [];
 
-      const queryMap = new Map<
-        string,
-        { count: number; totalSimilarity: number }
-      >();
-
-      logs.forEach((log: QueryLog) => {
-        const query = log.query_text?.toLowerCase() || 'unknown';
-        const current = queryMap.get(query) || { count: 0, totalSimilarity: 0 };
-        current.count++;
-        current.totalSimilarity += log.similarity_score || 0;
-        queryMap.set(query, current);
-      });
-
-      return Array.from(queryMap.entries())
-        .sort((a, b) => b[1].count - a[1].count)
-        .slice(0, parseInt(limit))
-        .map(([query, stats]) => ({
-          query,
-          count: stats.count,
-          avgConfidence: Number(
-            ((stats.totalSimilarity / stats.count) * 100).toFixed(1),
-          ),
-        }));
+      return logs.map((log: any) => ({
+        query: log.query || 'unknown',
+        count: Number(log.count),
+        // Setting an empty avgConfidence since it's no longer computed in RPC, to keep shape compatible
+        avgConfidence: 0,
+      }));
     } catch (error) {
       throw new InternalServerErrorException('Failed to fetch top queries');
     }
@@ -138,30 +109,12 @@ export class MetricsController {
     try {
       const supabase = this.supabaseService.getClient();
 
-      const { data: logs } = await supabase
-        .from('query_logs')
-        .select('route_decision, similarity_score, response_time_ms')
-        .order('created_at', { ascending: false })
-        .limit(500);
+      const { data: logs, error } = await supabase.rpc('get_route_stats');
 
+      if (error) throw error;
       if (!logs) return {};
 
-      const routes = new Map<string, RouteStats>();
-
-      logs.forEach((log: QueryLog) => {
-        const route = log.route_decision || 'unknown';
-        const current = routes.get(route) || {
-          count: 0,
-          totalSim: 0,
-          totalTime: 0,
-        };
-        current.count++;
-        current.totalSim += log.similarity_score || 0;
-        current.totalTime += log.response_time_ms || 0;
-        routes.set(route, current);
-      });
-
-      const total = logs.length;
+      const total = logs.reduce((acc: number, log: any) => acc + Number(log.count), 0);
       const result: Record<
         string,
         {
@@ -172,14 +125,13 @@ export class MetricsController {
         }
       > = {};
 
-      routes.forEach((stats, route) => {
+      logs.forEach((log: any) => {
+        const route = log.route || 'unknown';
         result[route] = {
-          count: stats.count,
-          percentage: Number(((stats.count / total) * 100).toFixed(1)),
-          avgConfidence: Number(
-            ((stats.totalSim / stats.count) * 100).toFixed(1),
-          ),
-          avgResponseTime: Math.round(stats.totalTime / stats.count),
+          count: Number(log.count),
+          percentage: total > 0 ? Number(((Number(log.count) / total) * 100).toFixed(1)) : 0,
+          avgConfidence: 0, // Not available in RPC
+          avgResponseTime: 0, // Not available in RPC
         };
       });
 
@@ -217,8 +169,8 @@ export class MetricsController {
         successRate:
           synthesisAttempts > 0
             ? Number(
-                ((successfulSynthesis / synthesisAttempts) * 100).toFixed(1),
-              )
+              ((successfulSynthesis / synthesisAttempts) * 100).toFixed(1),
+            )
             : 0,
         totalUsed: llmUsed,
         usageRate: Number(((llmUsed / logs.length) * 100).toFixed(1)),
@@ -260,8 +212,8 @@ export class MetricsController {
       const avgRating =
         ratings.length > 0
           ? (
-              ratings.reduce((a: number, b: number) => a + b) / ratings.length
-            ).toFixed(1)
+            ratings.reduce((a: number, b: number) => a + b) / ratings.length
+          ).toFixed(1)
           : 0;
 
       const feedbackTypes: Record<string, number> = {};

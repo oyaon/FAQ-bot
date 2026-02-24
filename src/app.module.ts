@@ -11,10 +11,19 @@ import { SupabaseModule } from './supabase/supabase.module';
 import { ConversationModule } from './conversation/conversation.module';
 import { ChatModule } from './chat/chat.module';
 
+import * as Joi from 'joi';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      validationSchema: Joi.object({
+        SUPABASE_URL: Joi.string().required(),
+        SUPABASE_ANON_KEY: Joi.string().required(),
+        ADMIN_API_KEY: Joi.string().required(),
+        GEMINI_API_KEY: Joi.string().required(),
+        PORT: Joi.number().default(3000),
+      }),
     }),
     ThrottlerModule.forRoot([
       {
@@ -38,4 +47,4 @@ import { ChatModule } from './chat/chat.module';
     },
   ],
 })
-export class AppModule {}
+export class AppModule { }
