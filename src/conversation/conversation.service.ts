@@ -1,6 +1,5 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
-import { SupabaseService } from '../supabase/supabase.service';
 
 export interface Message {
   role: 'user' | 'assistant';
@@ -21,23 +20,10 @@ export class ConversationService implements OnModuleInit {
   private sessions = new Map<string, Session>();
   private isInitialized = false;
 
-  // Clean up old sessions every 30 minutes
-  constructor(private supabaseService: SupabaseService) {
-    // Cleanup interval started in onModuleInit
-  }
-
   async onModuleInit() {
-    // TEMPORARILY DISABLED - Supabase session loading causing initialization failure
-    // TODO: Fix conversation_messages table or remove persistent storage
-
     this.logger.log('ConversationService initialized (in-memory sessions only)');
-    this.isInitialized = true;
-
-    // Start cleanup interval for old sessions
     setInterval(() => this.cleanup(), 30 * 60 * 1000);
   }
-
-  // Removed loadRecentSessions() - using in-memory Map only
 
   async createSession(): Promise<string> {
     if (!this.isInitialized) {
@@ -53,65 +39,14 @@ export class ConversationService implements OnModuleInit {
     };
 
     this.sessions.set(id, session);
-
-    // Persist to Supabase
-    try {
-      await this.supabaseService.getClient().from('sessions').insert({
-        id,
-        messages: [],
-        created_at: session.createdAt.toISOString(),
-        last_active_at: session.lastActiveAt.toISOString(),
-      });
-    } catch (error) {
-      this.logger.warn('Failed to persist session to Supabase:', error);
-    }
-
     return id;
   }
 
   async getSession(sessionId: string): Promise<Session | null> {
-    // Try in-memory first
-    let session = this.sessions.get(sessionId);
-
-    if (!session) {
-      // Try loading from Supabase
-      try {
-        const { data, error } = await this.supabaseService
-          .getClient()
-          .from('sessions')
-          .select('*')
-          .eq('id', sessionId)
-          .single();
-
-        if (!error && data) {
-          session = {
-            id: data.id,
-            messages: data.messages || [],
-            createdAt: new Date(data.created_at),
-            lastActiveAt: new Date(data.last_active_at),
-          };
-          this.sessions.set(sessionId, session);
-        }
-      } catch (error) {
-        this.logger.warn('Failed to load session from Supabase:', error);
-      }
-    }
-
+    const session = this.sessions.get(sessionId);
     if (!session) return null;
 
     session.lastActiveAt = new Date();
-
-    // Update last_active_at in Supabase
-    try {
-      await this.supabaseService
-        .getClient()
-        .from('sessions')
-        .update({ last_active_at: session.lastActiveAt.toISOString() })
-        .eq('id', sessionId);
-    } catch (error) {
-      // Silently fail - in-memory is still valid
-    }
-
     return session;
   }
 
@@ -121,12 +56,6 @@ export class ConversationService implements OnModuleInit {
     content: string,
   ): Promise<void> {
     let session = this.sessions.get(sessionId);
-
-    if (!session) {
-      // Try to load from Supabase
-      await this.getSession(sessionId);
-      session = this.sessions.get(sessionId);
-    }
 
     if (!session) {
       this.logger.warn(`Session ${sessionId} not found, creating new one`);
@@ -151,20 +80,6 @@ export class ConversationService implements OnModuleInit {
     if (session.messages.length > 10) {
       session.messages = session.messages.slice(-10);
     }
-
-    // Persist to Supabase
-    try {
-      await this.supabaseService.getClient().from('sessions').upsert(
-        {
-          id: sessionId,
-          messages: session.messages,
-          last_active_at: session.lastActiveAt.toISOString(),
-        },
-        { onConflict: 'id' },
-      );
-    } catch (error) {
-      this.logger.warn('Failed to persist message to Supabase:', error);
-    }
   }
 
   getRecentContext(sessionId: string, count = 4): Message[] {
@@ -174,29 +89,20 @@ export class ConversationService implements OnModuleInit {
     return session.messages.slice(-count);
   }
 
-  private async cleanup(): Promise<void> {
+  private cleanup(): void {
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-    const toDelete: string[] = [];
+    let deletedCount = 0;
 
     for (const [id, session] of this.sessions) {
       if (session.lastActiveAt < oneHourAgo) {
-        toDelete.push(id);
         this.sessions.delete(id);
+        deletedCount++;
       }
     }
 
-    // Delete from Supabase
-    if (toDelete.length > 0) {
-      try {
-        await this.supabaseService
-          .getClient()
-          .from('sessions')
-          .delete()
-          .in('id', toDelete);
-        this.logger.log(`Cleaned up ${toDelete.length} expired sessions`);
-      } catch (error) {
-        this.logger.warn('Failed to delete sessions from Supabase:', error);
-      }
+    if (deletedCount > 0) {
+      this.logger.log(`Cleaned up ${deletedCount} expired sessions`);
     }
   }
 }
+
