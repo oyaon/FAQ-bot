@@ -23,12 +23,18 @@ export class ConversationService implements OnModuleInit {
 
   // Clean up old sessions every 30 minutes
   constructor(private supabaseService: SupabaseService) {
-    setInterval(() => this.cleanup(), 30 * 60 * 1000);
+    // Cleanup interval started in onModuleInit
   }
 
   async onModuleInit() {
-    this.logger.log('ConversationService initialized with in-memory storage');
+    // TEMPORARILY DISABLED - Supabase session loading causing initialization failure
+    // TODO: Fix conversation_messages table or remove persistent storage
+
+    this.logger.log('ConversationService initialized (in-memory sessions only)');
     this.isInitialized = true;
+
+    // Start cleanup interval for old sessions
+    setInterval(() => this.cleanup(), 30 * 60 * 1000);
   }
 
   // Removed loadRecentSessions() - using in-memory Map only
