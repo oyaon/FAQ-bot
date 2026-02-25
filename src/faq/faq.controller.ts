@@ -5,8 +5,7 @@ import { FaqService } from './faq.service';
 import { EmbeddingService } from '../embedding/embedding.service';
 import { SearchDto } from './dto/search.dto';
 import { FeedbackDto } from './dto/feedback.dto';
-import { ConversationService, Message } from '../conversation/conversation.service';
-import { ContextRewriterService } from '../conversation/context-rewriter.service';
+import { ConversationService } from '../conversation/conversation.service';
 import { LlmService } from '../llm/llm.service';
 
 @Controller()
@@ -17,7 +16,6 @@ export class FaqController {
     private faqService: FaqService,
     private embeddingService: EmbeddingService,
     private conversationService: ConversationService,
-    private contextRewriter: ContextRewriterService,
     private llmService: LlmService,
   ) {}
 
@@ -34,43 +32,19 @@ export class FaqController {
       return { error: 'Query is required' };
     }
 
-    // Validate that required services are available
-    if (!this.conversationService) {
-      this.logger.error('ConversationService not injected properly');
-      return { 
-        route: 'error',
-        message: 'Service unavailable, please try again later',
-        error: 'ConversationService not initialized'
-      };
-    }
+    // TEMPORARILY DISABLED - ConversationService causing crashes
+    // let sessionId = dto.sessionId;
+    // if (!sessionId) {
+    //   sessionId = await this.conversationService.createSession();
+    // }
+    // const history = this.conversationService.getRecentContext(sessionId);
+    // const rewrittenQuery = this.contextRewriter.rewriteWithContext(dto.query, history);
 
-    // 1. Get or create session
-    let sessionId = dto.sessionId;
-    try {
-      if (!sessionId) {
-        sessionId = await this.conversationService.createSession();
-      }
-    } catch (sessionError) {
-      this.logger.error('Failed to create session:', sessionError);
-      // Continue with ephemeral session (no persistence)
-      sessionId = uuidv4();
-    }
-
-    // 2. Get conversation history
-    let history: Message[] = [];
-    try {
-      history = this.conversationService.getRecentContext(sessionId);
-    } catch (historyError) {
-      this.logger.warn('Failed to get conversation history:', historyError);
-      // Continue with empty history
-    }
-
-    // 3. Rewrite query with context if needed
-    const rewrittenQuery = this.contextRewriter.rewriteWithContext(
-      query,
-      history,
-    );
-    const contextUsed = rewrittenQuery !== query;
+    // Use original query without context for now
+    const rewrittenQuery = dto.query;
+    const history: any[] = [];
+    let sessionId = dto.sessionId || uuidv4();
+    const contextUsed = false;
 
     const start = Date.now();
 
