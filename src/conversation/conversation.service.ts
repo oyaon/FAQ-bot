@@ -19,6 +19,7 @@ export interface Session {
 export class ConversationService implements OnModuleInit {
   private readonly logger = new Logger(ConversationService.name);
   private sessions = new Map<string, Session>();
+  private isInitialized = false;
 
   // Clean up old sessions every 30 minutes
   constructor(private supabaseService: SupabaseService) {
@@ -26,45 +27,17 @@ export class ConversationService implements OnModuleInit {
   }
 
   async onModuleInit() {
-    // Load recent sessions from Supabase on startup
-    await this.loadRecentSessions();
+    this.logger.log('ConversationService initialized with in-memory storage');
+    this.isInitialized = true;
   }
 
-  private async loadRecentSessions() {
-    try {
-      const { data, error } = await this.supabaseService
-        .getClient()
-        .from('sessions')
-        .select('*')
-        .gte(
-          'last_active_at',
-          new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-        );
-
-      if (error) {
-        this.logger.warn(
-          'Could not load sessions from Supabase, using in-memory only',
-        );
-        return;
-      }
-
-      if (data) {
-        for (const row of data) {
-          this.sessions.set(row.id, {
-            id: row.id,
-            messages: row.messages || [],
-            createdAt: new Date(row.created_at),
-            lastActiveAt: new Date(row.last_active_at),
-          });
-        }
-        this.logger.log(`Loaded ${data.length} sessions from Supabase`);
-      }
-    } catch (error) {
-      this.logger.warn('Failed to load sessions from Supabase:', error);
-    }
-  }
+  // Removed loadRecentSessions() - using in-memory Map only
 
   async createSession(): Promise<string> {
+    if (!this.isInitialized) {
+      throw new Error('ConversationService not initialized');
+    }
+
     const id = uuidv4();
     const session: Session = {
       id,
