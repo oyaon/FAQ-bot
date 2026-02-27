@@ -8,17 +8,20 @@ import {
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { v4 as uuidv4 } from 'uuid';
+import type { Request, Response } from 'express';
 
 @Injectable()
 export class CorrelationIdInterceptor implements NestInterceptor {
   private readonly logger = new Logger(CorrelationIdInterceptor.name);
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
-    const request = context.switchToHttp().getRequest();
-    const response = context.switchToHttp().getResponse();
+    const request: Request = context.switchToHttp().getRequest();
+    const response: Response = context.switchToHttp().getResponse();
 
     // Check if x-correlation-id header already exists
-    let correlationId = request.headers['x-correlation-id'];
+    let correlationId = request.headers['x-correlation-id'] as
+      | string
+      | undefined;
 
     // Generate new UUID v4 if not present
     if (!correlationId) {

@@ -91,11 +91,24 @@ export class ConversationService {
       const client = this.supabaseService.getClient();
       if (!client) return null;
 
-      const { data, error } = await client
+      interface SupabaseSessionData {
+        id: string;
+        messages: Message[];
+        created_at: string;
+        updated_at: string;
+      }
+
+      const {
+        data,
+        error,
+      }: {
+        data: SupabaseSessionData | null;
+        error: { message: string } | null;
+      } = await client
         .from('sessions')
         .select('*')
         .eq('id', sessionId)
-        .single();
+        .single<SupabaseSessionData>();
 
       if (error || !data) {
         this.logger.warn(`Session not found: ${sessionId}`);
@@ -149,17 +162,21 @@ export class ConversationService {
       const client = this.supabaseService.getClient();
       if (!client) return;
 
+      interface SessionMessages {
+        messages: Message[];
+      }
+
       // Get existing messages
-      const { data } = await client
+      const { data }: { data: SessionMessages | null } = await client
         .from('sessions')
         .select('messages')
         .eq('id', sessionId)
-        .single();
+        .single<SessionMessages>();
 
-      const existingMessages = data?.messages || [];
+      const existingMessages: Message[] = data?.messages || [];
       existingMessages.push(message);
 
-      const { error } = await client
+      const { error }: { error: { message: string } | null } = await client
         .from('sessions')
         .update({
           messages: existingMessages,
@@ -169,7 +186,7 @@ export class ConversationService {
 
       if (error) {
         this.logger.warn(
-          `Failed to save message to Supabase: ${error.message}`,
+          `Failed to save message to Supabase: ${String(error.message)}`,
         );
       }
     } catch (error) {

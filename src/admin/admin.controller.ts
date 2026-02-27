@@ -13,6 +13,18 @@ import { parse } from 'json2csv';
 import { SupabaseService } from '../supabase/supabase.service';
 import { ApiKeyGuard } from './api-key.guard';
 
+interface QueryLogData {
+  id: number;
+  query_text: string;
+  similarity_score: number;
+  created_at: string;
+  route_decision: string;
+}
+
+interface CategoryData {
+  matched_faq_category: string;
+}
+
 @Controller('admin')
 @UseGuards(ThrottlerGuard, ApiKeyGuard)
 export class AdminController {
@@ -27,13 +39,13 @@ export class AdminController {
 
   @Get('analytics')
   @Redirect('/admin/index.html', 302)
-  analytics() {
+  analytics(): void {
     // Serves index.html from /public/admin folder via ServeStaticModule
   }
 
   @Get()
   @Redirect('/admin/index.html', 302)
-  dashboardRedirect() {
+  dashboardRedirect(): void {
     // Redirect root /admin to analytics dashboard
   }
 
@@ -184,11 +196,15 @@ export class AdminController {
       dataQuery = dataQuery.lte('created_at', endDate);
     }
 
-    const { data, error } = await dataQuery;
+    const {
+      data,
+      error,
+    }: { data: QueryLogData[] | null; error: { message: string } | null } =
+      await dataQuery;
 
     if (error) {
       throw new BadRequestException(
-        `Failed to fetch low-confidence queries: ${error.message}`,
+        `Failed to fetch low-confidence queries: ${String(error.message)}`,
       );
     }
 
@@ -234,11 +250,17 @@ export class AdminController {
       query = query.lte('created_at', endDate);
     }
 
-    const { data, error } = await query;
+    const {
+      data,
+      error,
+    }: {
+      data: CategoryData[] | null;
+      error: { message: string } | null;
+    } = await query;
 
     if (error) {
       throw new BadRequestException(
-        `Failed to fetch category data: ${error.message}`,
+        `Failed to fetch category data: ${String(error.message)}`,
       );
     }
 
@@ -289,8 +311,14 @@ export class AdminController {
     if (startDate) query = query.gte('created_at', startDate);
     if (endDate) query = query.lte('created_at', endDate);
 
-    const { data, error } = await query;
-    if (error) throw new Error(error.message);
+    const {
+      data,
+      error,
+    }: {
+      data: Record<string, unknown>[] | null;
+      error: { message: string } | null;
+    } = await query;
+    if (error) throw new Error(String(error.message));
 
     if (format === 'csv') {
       const csv = parse(data || []);
