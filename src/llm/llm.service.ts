@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { GeminiResponse } from '../types';
 
 interface FaqContext {
   question: string;
@@ -13,18 +14,120 @@ export class LlmService {
   private readonly apiUrl =
     'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
   private readonly requestTimeout = 30000; // 30 seconds
+  /**
+   * Circuit Breaker Configuration
+   *
+   * IMPORTANT: These variables are stored IN-MEMORY ONLY and will reset on every
+   * server restart or deployment. This is acceptable for MVP purposes.
+   *
+   * For production persistence, consider using Redis with a key like 'circuit:llm:state'
+   * to maintain state across deployments.
+   *
+   * Circuit States:
+   * - circuitOpen = false: Normal operation, requests allowed
+   * - circuitOpen = true: Circuit is open, requests are rejected
+   *   When circuit opens, it will reset after 5 minutes (circuitResetTime)
+   */
+  private failureCount = 0;
+  private circuitOpen = false;
+  private circuitResetTime: number | null = null;
+  private dailyUsageCount = 0;
+  private dailyUsageDate: string = new Date().toDateString();
+  private readonly DAILY_LIMIT = 500; // configurable cap
+
+  private containsPromptInjection(text: string): boolean {
+    const patterns = [
+      /ignore previous instructions/i,
+      /disregard the above/i,
+      /reveal your system prompt/i,
+      /what are your hidden instructions/i,
+      /summarize your instructions/i,
+      /system prompt/i,
+      /override instructions/i,
+      /forget previous/i,
+    ];
+
+    return patterns.some((pattern) => pattern.test(text));
+  }
+
+  private containsUnsafeOutput(text: string): boolean {
+    const patterns = [
+      /system prompt/i,
+      /hidden instructions/i,
+      /ignore previous/i,
+      /as an AI language model/i,
+    ];
+
+    return patterns.some((pattern) => pattern.test(text));
+  }
 
   async synthesizeAnswer(
     userQuery: string,
     relevantFaqs: FaqContext[],
     conversationHistory?: string[],
   ): Promise<string | null> {
+    // Input length validation - truncate long queries to prevent excessive token usage
+    if (userQuery.length > 2000) {
+      this.logger.warn(`User query truncated from ${userQuery.length} to 2000 characters`);
+      userQuery = userQuery.substring(0, 2000);
+    }
+
+    // Truncate FAQ context if combined text exceeds 4000 characters
+    let truncatedFaqs = relevantFaqs;
+    const faqContextTest = relevantFaqs
+      .map(
+        (faq, i) =>
+          `FAQ ${i + 1} (${Math.round(faq.similarity * 100)}% relevant):\n` +
+          `Q: ${faq.question}\nA: ${faq.answer}`,
+      )
+      .join('\n\n');
+
+    if (faqContextTest.length > 4000) {
+      // Calculate how many FAQs we can fit within 4000 chars (approximate)
+      const avgFaqLength = faqContextTest.length / relevantFaqs.length;
+      const maxFaqs = Math.max(1, Math.floor(4000 / avgFaqLength));
+      truncatedFaqs = relevantFaqs.slice(0, maxFaqs);
+      this.logger.warn(`FAQ context truncated from ${relevantFaqs.length} to ${maxFaqs} items`);
+    }
+
     if (!this.apiKey) {
       this.logger.warn('No Gemini API key configured');
       return null;
     }
 
-    const faqContext = relevantFaqs
+    // Daily usage tracking - reset if new day
+    const today = new Date().toDateString();
+    if (today !== this.dailyUsageDate) {
+      this.dailyUsageCount = 0;
+      this.dailyUsageDate = today;
+    }
+
+    // Check daily limit before making API call
+    if (this.dailyUsageCount >= this.DAILY_LIMIT) {
+      this.logger.warn('Daily LLM usage limit reached');
+      return null;
+    }
+
+    // Circuit breaker check
+    if (this.circuitOpen) {
+      if (this.circuitResetTime && Date.now() >= this.circuitResetTime) {
+        this.failureCount = 0;
+        this.circuitOpen = false;
+        this.circuitResetTime = null;
+        this.logger.log('Circuit breaker reset - reopening circuit');
+      } else {
+        this.logger.warn('Circuit breaker is open - rejecting request');
+        return null;
+      }
+    }
+
+    // Prompt injection detection - refuse without sanitizing
+    if (this.containsPromptInjection(userQuery)) {
+      this.logger.warn('Prompt injection attempt detected');
+      return null;
+    }
+
+    const faqContext = truncatedFaqs
       .map(
         (faq, i) =>
           `FAQ ${i + 1} (${Math.round(faq.similarity * 100)}% relevant):\n` +
@@ -73,7 +176,10 @@ Answer (friendly, direct, using only the FAQs above):`;
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), this.requestTimeout);
+      const timeoutId = setTimeout(
+        () => controller.abort(),
+        this.requestTimeout,
+      );
 
       const response = await fetch(this.apiUrl, {
         method: 'POST',
@@ -103,7 +209,7 @@ Answer (friendly, direct, using only the FAQs above):`;
         return null;
       }
 
-      const data = await response.json() as any;
+      const data = (await response.json()) as GeminiResponse;
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
       if (!text) {
@@ -111,13 +217,44 @@ Answer (friendly, direct, using only the FAQs above):`;
         return null;
       }
 
+      // Output length guard - prevents runaway responses
+      if (text.length > 1000) {
+        this.logger.warn('LLM output too long - possible abuse');
+        return null;
+      }
+
+      // Validate output safety
+      if (this.containsUnsafeOutput(text)) {
+        this.logger.warn('Unsafe output detected from LLM');
+        return null;
+      }
+
+      // Reset circuit breaker on successful response
+      this.failureCount = 0;
+
+      // Increment daily usage count on success
+      this.dailyUsageCount++;
+
       return text.trim();
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
         this.logger.error('LLM API request timeout after 30s');
       } else {
-        this.logger.error(`LLM synthesis failed: ${error instanceof Error ? error.message : String(error)}`);
+        this.logger.error(
+          `LLM synthesis failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
+
+      // Circuit breaker failure handling
+      this.failureCount++;
+      if (this.failureCount >= 5) {
+        this.circuitOpen = true;
+        this.circuitResetTime = Date.now() + 5 * 60 * 1000; // 5 minutes
+        this.logger.error(
+          `Circuit breaker opened after ${this.failureCount} failures. Will reset at ${new Date(this.circuitResetTime).toISOString()}`,
+        );
+      }
+
       return null;
     }
   }

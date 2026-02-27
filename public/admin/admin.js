@@ -1,7 +1,10 @@
 // Admin Dashboard JavaScript
 // This file handles all the client-side functionality for the admin analytics dashboard
 
-const BASE_URL = '';
+const ADMIN_API_KEY = localStorage.getItem('adminKey') || prompt('Enter admin API key');
+
+// Set the API key for the shared client
+apiClient.setApiKey(ADMIN_API_KEY);
 
 let ratingsChart = null;
 let feedbackTypesChart = null;
@@ -26,9 +29,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function fetchData(endpoint) {
     try {
-        const res = await fetch(`${BASE_URL}${endpoint}`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-        return await res.json();
+        const data = await apiClient.get(endpoint);
+        return data;
     } catch (err) {
         console.error(`Error fetching ${endpoint}:`, err);
         showError(`Failed to fetch ${endpoint}: ${err.message}`);

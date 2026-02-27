@@ -4,6 +4,10 @@ import { EmbeddingService } from '../embedding/embedding.service';
 import { LlmService } from '../llm/llm.service';
 import { SupabaseService } from '../supabase/supabase.service';
 import { ContextRewriterService } from '../conversation/context-rewriter.service';
+import { RouteType } from '../types/routes';
+
+// Hard cap for conversation history to prevent unbounded memory per session
+const MAX_HISTORY_LENGTH = 20;
 
 export interface ConversationMessage {
   id?: string;
@@ -30,16 +34,26 @@ export class ChatService {
    */
   async getConversationHistory(
     sessionId: string,
-    limit: number = 5,
+    limit: number = 10,
   ): Promise<ConversationMessage[]> {
     try {
       const supabase = this.supabaseService.getClient();
+      
+      // Handle case where Supabase is not initialized
+      if (!supabase) {
+        this.logger.warn('Supabase not initialized, returning empty history');
+        return [];
+      }
+      
+      // Enforce hard cap to prevent unbounded memory per session
+      const cappedLimit = Math.min(limit, MAX_HISTORY_LENGTH);
+      
       const { data, error } = await supabase
         .from('conversation_messages')
         .select('*')
         .eq('session_id', sessionId)
         .order('created_at', { ascending: false })
-        .limit(limit);
+        .limit(cappedLimit);
 
       if (error) {
         this.logger.warn(
@@ -65,6 +79,13 @@ export class ChatService {
   ): Promise<ConversationMessage | null> {
     try {
       const supabase = this.supabaseService.getClient();
+      
+      // Handle case where Supabase is not initialized
+      if (!supabase) {
+        this.logger.warn('Supabase not initialized, skipping message save');
+        return null;
+      }
+      
       const { data, error } = await supabase
         .from('conversation_messages')
         .insert({
@@ -80,7 +101,6 @@ export class ChatService {
         this.logger.error(`Failed to save message: ${error.message}`);
         return null;
       }
-
       return data as ConversationMessage;
     } catch (err) {
       this.logger.error('Error saving message:', err);
@@ -106,7 +126,7 @@ export class ChatService {
     if (!userMessage || userMessage.trim().length === 0) {
       return {
         answer: 'Please provide a message.',
-        route: 'error',
+        route: RouteType.ERROR,
         confidence: 0,
         sessionId,
         llmUsed: false,
@@ -118,7 +138,7 @@ export class ChatService {
     const start = Date.now();
 
     try {
-      // 1. Retrieve conversation history
+      // 1. Retrieve conversation history (with hard cap enforced)
       const conversationHistory = await this.getConversationHistory(
         sessionId,
         5,
@@ -149,7 +169,7 @@ export class ChatService {
 
       const responseTime = Date.now() - start;
 
-      let route = 'fallback';
+      let route = RouteType.FALLBACK;
       let topFaqId: number | null = null;
       let similarity: number | null = null;
       let queryLogId: number | null = null;
@@ -161,15 +181,15 @@ export class ChatService {
       // 3-TIER ROUTING LOGIC
       if (topResult && topResult.similarity >= 0.8) {
         // HIGH confidence - direct FAQ answer
-        route = 'direct';
+        route = RouteType.DIRECT;
         answer = topResult.answer;
         similarity = Math.round(topResult.similarity * 100);
-        topFaqId = topResult.id;
+        topFaqId = Number(topResult.id);
       } else if (topResult && topResult.similarity >= 0.5) {
         // MEDIUM confidence - use LLM to synthesize
-        route = 'llm_synthesis';
+        route = RouteType.LLM_SYNTHESIS;
         similarity = Math.round(topResult.similarity * 100);
-        topFaqId = topResult.id;
+        topFaqId = Number(topResult.id);
 
         const faqContext = results
           .filter((r) => r.similarity >= 0.4)
@@ -191,11 +211,11 @@ export class ChatService {
         } else {
           // LLM failed, fall back to best FAQ
           answer = topResult.answer;
-          route = 'direct_fallback';
+          route = RouteType.DIRECT_FALLBACK;
         }
       } else {
         // LOW confidence - graceful fallback
-        route = 'fallback';
+        route = RouteType.FALLBACK;
         answer =
           "I'm not sure about that specific question. " +
           'You can contact our support team at support@example.com ' +
@@ -236,7 +256,7 @@ export class ChatService {
       this.logger.error('Error processing chat message:', error);
       return {
         answer: 'An error occurred processing your message. Please try again.',
-        route: 'error',
+        route: RouteType.ERROR,
         confidence: 0,
         sessionId,
         llmUsed: false,
@@ -246,3 +266,4 @@ export class ChatService {
     }
   }
 }
+

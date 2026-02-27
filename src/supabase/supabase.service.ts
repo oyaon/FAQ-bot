@@ -4,43 +4,84 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 @Injectable()
 export class SupabaseService implements OnModuleDestroy {
   private readonly logger = new Logger(SupabaseService.name);
-  private supabase: SupabaseClient;
+  public supabase: SupabaseClient | null = null;
+  public isInitialized = false;
 
   constructor() {
     const url = process.env.SUPABASE_URL;
     const key = process.env.SUPABASE_ANON_KEY;
-    // Validate environment variables
-    const missingVars: string[] = [];
-    if (!url) {
-      missingVars.push('SUPABASE_URL');
+
+    // Initialize synchronously in constructor
+    if (!url || !key) {
+      this.logger.warn(
+        'SUPABASE_URL or SUPABASE_ANON_KEY not configured. Supabase features will be disabled.',
+      );
+      this.isInitialized = false;
+      return;
     }
-    if (!key) {
-      missingVars.push('SUPABASE_ANON_KEY');
-    }
-    
-    if (missingVars.length > 0) {
-      this.logger.error(`Missing required environment variables: ${missingVars.join(', ')}`);
-      throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
-    }
-    
+
     this.logger.debug('Initializing Supabase client');
     this.supabase = createClient(url, key) as SupabaseClient;
+    this.isInitialized = true;
+    this.logger.log('Supabase client initialized successfully');
   }
 
-  getClient(): SupabaseClient {
+  /**
+   * Returns whether the Supabase client is initialized and ready
+   */
+  isReady(): boolean {
+    const ready = this.isInitialized && this.supabase !== null;
+    this.logger.debug(`isReady() called, returning: ${ready}`);
+    return ready;
+  }
+
+  getClient(): SupabaseClient | null {
     return this.supabase;
+  }
+
+  /**
+   * Check if Supabase is ready by performing a lightweight query
+   */
+  public async healthCheck(): Promise<boolean> {
+    if (!this.isInitialized || !this.supabase) {
+      return false;
+    }
+
+    try {
+      // Perform a lightweight query to verify connection
+      const { error } = await this.supabase
+        .from('faq')
+        .select('id')
+        .limit(1);
+
+      if (error) {
+        this.logger.warn(`Supabase health check failed: ${error.message}`);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.warn(`Supabase health check error: ${errorMessage}`);
+      return false;
+    }
   }
 
   async onModuleDestroy() {
     // Close any open connections
-    // Supabase client doesn't need explicit cleanup
-    // but this hook allows Jest to exit cleanly
   }
 
   async query(
     table: string,
     queryFn: (client: SupabaseClient) => Promise<unknown>,
   ): Promise<unknown> {
+    if (!this.supabase) {
+      this.logger.warn(
+        `Supabase not initialized, skipping query on table ${table}`,
+      );
+      return null;
+    }
+
     try {
       return await queryFn(this.supabase);
     } catch (error) {
@@ -53,3 +94,4 @@ export class SupabaseService implements OnModuleDestroy {
     }
   }
 }
+

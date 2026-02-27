@@ -2,9 +2,17 @@ import { Controller, Post, Body } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { ChatService } from './chat.service';
 import { v4 as uuidv4 } from 'uuid';
+import { IsOptional, IsString, MaxLength, MinLength, IsUUID, IsNotEmpty } from 'class-validator';
 
 export class ChatRequestDto {
+  @IsOptional()
+  @IsUUID()
   sessionId?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(1)
+  @MaxLength(500)
   message: string;
 }
 
@@ -30,3 +38,4 @@ export class ChatController {
     return response;
   }
 }
+

@@ -1,49 +1,26 @@
-# TODO: CSP Fix Implementation Plan
+# FAQ Bot 500 Error Fix Plan
 
-## Tasks:
-- [x] 1. Update main.ts - Enhance CSP with proper directives for inline scripts and events
-- [x] 2. Verify admin/index.html - Ensure no inline event handlers (confirmed: none found)
-- [x] 3. Verify admin.js - Ensure proper event handling (uses DOMContentLoaded - correct)
-- [x] 4. Build project - Build runs successfully
-- [x] 5. Commit and deploy to Render (READY FOR DEPLOYMENT)
+## Problem Analysis
+The server is returning 500 errors because the database is not properly configured:
+- Missing `faq` table with embeddings
+- Missing `match_faqs` RPC function
+- Missing `query_logs` table
 
-## Implementation Details:
-1. **main.ts**: 
-   - Tightened CSP by removing unsafe-eval and unsafe-hashes
-   - Kept unsafe-inline only in scriptSrcAttr for inline event handlers
-   - Restricted connectSrc to "'self'" only (no more "https:")
-   - Added reportUri: '/csp-report' for CSP violation reporting
-   - Already had cdn.jsdelivr.net for Chart.js CDN
-2. **admin/index.html**: Verified - no inline event handlers (uses external script loading)
-3. **admin.js**: Uses DOMContentLoaded event listener (proper pattern)
-4. **app.module.ts**: Fixed joi dependency by installing joi@17.13.3
-5. **app.controller.ts**: CSP report endpoint already exists at /csp-report
+## Action Items
 
-## CSP Directives Applied:
-- defaultSrc: 'self'
-- scriptSrc: 'self', cdn.jsdelivr.net (REMOVED: unsafe-inline, unsafe-eval, unsafe-hashes)
-- scriptSrcElem: 'self', cdn.jsdelivr.net (REMOVED: unsafe-inline, unsafe-eval)
-- scriptSrcAttr: 'self', unsafe-inline (needed for inline event handlers like onclick)
-- styleSrc: 'self', unsafe-inline (needed for dynamic styling)
-- imgSrc: 'self', data:, https:
-- connectSrc: 'self' (REMOVED: https: - now restricted to same origin only)
-- fontSrc: 'self'
-- objectSrc: 'none'
-- mediaSrc: 'self'
-- childSrc: 'self'
-- baseUri: 'self'
-- formAction: 'self'
-- frameAncestors: 'none'
-- reportUri: /csp-report (ADDED)
+- [x] 1. Create proper database setup SQL script with all required tables and functions
+- [ ] 2. Add FAQ seed data with sample questions and answers (included in setup script)
+- [ ] 3. Document required environment variables
+- [ ] 4. Create verification steps for the user
 
-## Security Analysis:
-- Scripts: Only from same origin and cdn.jsdelivr.net (Chart.js)
-- Connections: Only to same origin (internal API calls only)
-- Frames: Completely blocked (frameAncestors: none)
-- Forms: Can only submit to same origin
+## Root Cause Summary
+The code references:
+- Table: `faq` (not `faq_entries`)
+- RPC function: `match_faqs` (not `match_faq_entries`)
 
-## Dependencies Fixed:
-- joi@17.13.3 installed (was missing from package.json)
-
-## Deployment Ready: ✅
+The original `setup-database.sql` was missing:
+1. The `faq` table creation
+2. The `match_faqs` RPC function
+3. The `query_logs` table
+4. Sample FAQ data seeding
 

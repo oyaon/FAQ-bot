@@ -3,9 +3,10 @@ import { FaqService } from './faq.service';
 import { FaqController } from './faq.controller';
 import { EmbeddingModule } from '../embedding/embedding.module';
 import { LlmModule } from '../llm/llm.module';
+import { SupabaseModule } from '../supabase/supabase.module';
 
 @Module({
-  imports: [EmbeddingModule, LlmModule],
+  imports: [EmbeddingModule, LlmModule, SupabaseModule],
   providers: [FaqService],
   controllers: [FaqController],
   exports: [FaqService],

@@ -7,13 +7,14 @@ import {
   UseGuards,
   Redirect,
 } from '@nestjs/common';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { parse } from 'json2csv';
 import { SupabaseService } from '../supabase/supabase.service';
 import { ApiKeyGuard } from './api-key.guard';
 
 @Controller('admin')
-@UseGuards(ApiKeyGuard)
+@UseGuards(ThrottlerGuard, ApiKeyGuard)
 export class AdminController {
   constructor(private supabaseService: SupabaseService) {}
 
@@ -271,15 +272,19 @@ export class AdminController {
   async exportLogs(
     @Res() res: Response,
     @Query('format') format: 'csv' | 'json' = 'json',
+    @Query('limit') limit = 10000,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
     const supabase = this.supabaseService.getClient();
 
+    const safeLimit = Math.min(Number(limit), 10000);
+
     let query = supabase
       .from('query_logs')
       .select('*')
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(safeLimit);
 
     if (startDate) query = query.gte('created_at', startDate);
     if (endDate) query = query.lte('created_at', endDate);
@@ -299,3 +304,4 @@ export class AdminController {
     }
   }
 }
+

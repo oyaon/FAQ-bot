@@ -1,12 +1,13 @@
-﻿import { Controller, Post, Body, Get, Logger } from '@nestjs/common';
+﻿import { Controller, Post, Body, Get, Logger, HttpCode, HttpStatus } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { v4 as uuidv4 } from 'uuid';
 import { FaqService } from './faq.service';
 import { EmbeddingService } from '../embedding/embedding.service';
+import { SupabaseService } from '../supabase/supabase.service';
 import { SearchDto } from './dto/search.dto';
 import { FeedbackDto } from './dto/feedback.dto';
-import { ConversationService } from '../conversation/conversation.service';
 import { LlmService } from '../llm/llm.service';
+import { RouteType } from '../types/routes';
 
 @Controller()
 export class FaqController {
@@ -15,13 +16,31 @@ export class FaqController {
   constructor(
     private faqService: FaqService,
     private embeddingService: EmbeddingService,
-    private conversationService: ConversationService,
+    private supabaseService: SupabaseService,
     private llmService: LlmService,
   ) {}
 
   @Get('health')
-  health() {
-    return { status: 'ok', timestamp: new Date() };
+  @HttpCode(HttpStatus.OK)
+  async health() {
+    const embeddingReady = this.embeddingService.isReady();
+    const supabaseReady = await this.supabaseService.isReady();
+
+    if (!embeddingReady || !supabaseReady) {
+      return {
+        status: 'degraded',
+        embedding: embeddingReady,
+        supabase: supabaseReady,
+        timestamp: new Date(),
+      };
+    }
+
+    return {
+      status: 'ok',
+      embedding: true,
+      supabase: true,
+      timestamp: new Date(),
+    };
   }
 
   @Post('search')
@@ -42,8 +61,8 @@ export class FaqController {
 
     // Use original query without context for now
     const rewrittenQuery = dto.query;
-    const history: any[] = [];
-    let sessionId = dto.sessionId || uuidv4();
+    const historyStrings: string[] = [];
+    const sessionId = dto.sessionId || uuidv4();
     const contextUsed = false;
 
     const start = Date.now();
@@ -55,7 +74,7 @@ export class FaqController {
 
       const responseTime = Date.now() - start;
 
-      let route = 'fallback';
+      let route = RouteType.FALLBACK;
       let topFaqId: number | null = null;
       let similarity: number | null = null;
       let queryLogId: number | null = null;
@@ -67,15 +86,15 @@ export class FaqController {
       // 3-TIER ROUTING LOGIC
       if (topResult && topResult.similarity >= 0.8) {
         // HIGH confidence - direct FAQ answer
-        route = 'direct';
+        route = RouteType.DIRECT;
         answer = topResult.answer;
         similarity = Math.round(topResult.similarity * 100);
-        topFaqId = topResult.id;
+        topFaqId = Number(topResult.id);
       } else if (topResult && topResult.similarity >= 0.5) {
         // MEDIUM confidence - use LLM to synthesize
-        route = 'llm_synthesis';
+        route = RouteType.LLM_SYNTHESIS;
         similarity = Math.round(topResult.similarity * 100);
-        topFaqId = topResult.id;
+        topFaqId = Number(topResult.id);
 
         const faqContext = results
           .filter((r) => r.similarity >= 0.4)
@@ -84,8 +103,6 @@ export class FaqController {
             answer: r.answer,
             similarity: r.similarity,
           }));
-
-        const historyStrings = history.map((m) => `${m.role}: ${m.content}`);
 
         const synthesized = await this.llmService.synthesizeAnswer(
           query,
@@ -99,11 +116,11 @@ export class FaqController {
         } else {
           // LLM failed, fall back to best FAQ
           answer = topResult.answer;
-          route = 'direct_fallback';
+          route = RouteType.DIRECT_FALLBACK;
         }
       } else {
         // LOW confidence - graceful fallback
-        route = 'fallback';
+        route = RouteType.FALLBACK;
         answer =
           "I'm not sure about that specific question. " +
           'You can contact our support team at support@example.com ' +
@@ -122,15 +139,6 @@ export class FaqController {
         topResult?.category,
       );
 
-      // Store the exchange in session (fire and forget - don't fail the request if this fails)
-      try {
-        await this.conversationService.addMessage(sessionId, 'user', query);
-        await this.conversationService.addMessage(sessionId, 'assistant', answer);
-      } catch (msgError) {
-        this.logger.warn('Failed to store conversation message:', msgError);
-        // Continue - this is not critical
-      }
-
       return {
         answer,
         route,
@@ -147,12 +155,14 @@ export class FaqController {
             }
           : null,
       };
-    } catch (error) {
+    } catch (error: unknown) {
       // Model not ready or other error
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       return {
-        route: 'error',
+        route: RouteType.ERROR,
         message: 'Search is starting up, please try again in a moment.',
-        error: error.message,
+        error: errorMessage,
         sessionId,
       };
     }
@@ -162,7 +172,7 @@ export class FaqController {
   async feedback(@Body() dto: FeedbackDto) {
     await this.faqService.saveFeedback(
       dto.queryLogId,
-      dto.helpful,
+      dto.helpful ? 1 : 0, // Convert boolean to number for database
       dto.rating,
       dto.feedback,
       dto.feedbackType,
@@ -170,3 +180,4 @@ export class FaqController {
     return { success: true };
   }
 }
+
