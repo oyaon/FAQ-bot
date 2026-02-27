@@ -1,6 +1,13 @@
-﻿import { Controller, Post, Body, Get, Logger, HttpCode, HttpStatus } from '@nestjs/common';
+﻿import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  Logger,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { v4 as uuidv4 } from 'uuid';
 import { FaqService } from './faq.service';
 import { EmbeddingService } from '../embedding/embedding.service';
 import { SupabaseService } from '../supabase/supabase.service';
@@ -51,25 +58,23 @@ export class FaqController {
       return { error: 'Query is required' };
     }
 
-    // TEMPORARILY DISABLED - ConversationService causing crashes
+    // CONVERSATION MEMORY TEMPORARILY DISABLED
     // let sessionId = dto.sessionId;
     // if (!sessionId) {
-    //   sessionId = await this.conversationService.createSession();
+    //   sessionId = this.conversationService.createSession();
     // }
     // const history = this.conversationService.getRecentContext(sessionId);
     // const rewrittenQuery = this.contextRewriter.rewriteWithContext(dto.query, history);
 
-    // Use original query without context for now
-    const rewrittenQuery = dto.query;
+    // Use query directly without context rewriting
     const historyStrings: string[] = [];
-    const sessionId = dto.sessionId || uuidv4();
     const contextUsed = false;
 
     const start = Date.now();
 
     try {
       // Generate embedding
-      const embedding = await this.embeddingService.generate(rewrittenQuery);
+      const embedding = await this.embeddingService.generate(query);
       const results = await this.faqService.searchByVector(embedding, 0.5, 3);
 
       const responseTime = Date.now() - start;
@@ -143,9 +148,9 @@ export class FaqController {
         answer,
         route,
         confidence: similarity || 0,
-        sessionId,
+        // sessionId removed - conversation memory disabled
         contextUsed,
-        rewrittenQuery: contextUsed ? rewrittenQuery : undefined,
+        // rewrittenQuery removed - conversation memory disabled
         llmUsed,
         queryLogId,
         topResult: topResult
@@ -163,7 +168,7 @@ export class FaqController {
         route: RouteType.ERROR,
         message: 'Search is starting up, please try again in a moment.',
         error: errorMessage,
-        sessionId,
+        // sessionId removed - conversation memory disabled
       };
     }
   }
@@ -180,4 +185,3 @@ export class FaqController {
     return { success: true };
   }
 }
-
