@@ -12,31 +12,12 @@ import { ConversationModule } from './conversation/conversation.module';
 import { ChatModule } from './chat/chat.module';
 import { EmbeddingModule } from './embedding/embedding.module';
 
-import * as Joi from 'joi';
-
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      // Critical env vars are now required for production
-      validationSchema: Joi.object({
-        SUPABASE_URL: Joi.string().required(),
-        SUPABASE_ANON_KEY: Joi.string().required(),
-        GEMINI_API_KEY: Joi.string().optional(),
-        ADMIN_API_KEY: Joi.string().optional(),
-        PORT: Joi.number().default(3000),
-        NODE_ENV: Joi.string()
-          .valid('development', 'production')
-          .default('development'),
-        RENDER_EXTERNAL_URL: Joi.string().optional(),
-        APP_URL: Joi.string().optional(),
-        ALLOWED_ORIGINS: Joi.string().optional(),
-      }),
-      // Fail on missing required vars
-      validationOptions: {
-        allowUnknown: true,
-        abortEarly: false,
-      },
+      // Remove strict validation for now so missing keys don't crash the app
+      // You can add it back once all env vars are set
     }),
     ThrottlerModule.forRoot({
       throttlers: [

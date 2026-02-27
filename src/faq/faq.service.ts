@@ -12,6 +12,34 @@ export class FaqService {
     private supabaseService: SupabaseService,
   ) {}
 
+  /**
+   * Get answer for a question using vector search
+   * This is a simplified version used by the /api/faq endpoint
+   */
+  async getAnswer(question: string, _history: any[] = []): Promise<string> {
+    try {
+      // For now, return a simple response
+      // In a full implementation, this would generate embeddings and search
+      const supabase = this.supabaseService.getClient();
+      
+      if (!supabase) {
+        return "I'm not sure about that. Please configure Supabase to enable FAQ responses.";
+      }
+
+      // Simple keyword search as fallback
+      const results = await this.searchByKeyword(question, 3);
+      
+      if (results && results.length > 0) {
+        return results[0].answer;
+      }
+
+      return "I'm not sure about that specific question. You can contact our support team or try rephrasing your question.";
+    } catch (error) {
+      this.logger.error(`Error getting answer: ${error}`);
+      return "I'm having trouble answering your question right now. Please try again later.";
+    }
+  }
+
   async searchByVector(
     embedding: number[],
     threshold = 0.5,

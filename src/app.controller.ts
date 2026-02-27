@@ -21,10 +21,10 @@ export class AppController {
     // Debug logging
     console.log('[DEBUG] AppController health() called');
     console.log('[DEBUG] SupabaseService instance:', this.supabaseService);
-    console.log('[DEBUG] SupabaseService isReady:', this.supabaseService?.isReady?.());
+    console.log('[DEBUG] SupabaseService isConnected:', this.supabaseService?.isConnected?.());
     
     const embeddingReady = this.embeddingService?.isReady?.() ?? false;
-    const supabaseReady = this.supabaseService?.isReady() ?? false;
+    const supabaseReady = this.supabaseService?.isConnected() ?? false;
     
     console.log('[DEBUG] embeddingReady:', embeddingReady, 'supabaseReady:', supabaseReady);
     

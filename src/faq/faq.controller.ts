@@ -6,6 +6,7 @@
   Logger,
   HttpCode,
   HttpStatus,
+  Optional,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { FaqService } from './faq.service';
@@ -15,6 +16,12 @@ import { SearchDto } from './dto/search.dto';
 import { FeedbackDto } from './dto/feedback.dto';
 import { LlmService } from '../llm/llm.service';
 import { RouteType } from '../types/routes';
+import { ConversationService } from '../conversation/conversation.service';
+
+class AskQuestionDto {
+  question: string;
+  sessionId?: string;
+}
 
 @Controller()
 export class FaqController {
@@ -25,13 +32,20 @@ export class FaqController {
     private embeddingService: EmbeddingService,
     private supabaseService: SupabaseService,
     private llmService: LlmService,
-  ) {}
+    @Optional() private readonly conversationService: ConversationService,
+  ) {
+    if (!this.conversationService) {
+      this.logger.warn(
+        'ConversationService not available. Sessions will use fallback IDs.',
+      );
+    }
+  }
 
   @Get('health')
   @HttpCode(HttpStatus.OK)
   async health() {
     const embeddingReady = this.embeddingService.isReady();
-    const supabaseReady = await this.supabaseService.isReady();
+    const supabaseReady = this.supabaseService.isConnected();
 
     if (!embeddingReady || !supabaseReady) {
       return {
@@ -47,6 +61,75 @@ export class FaqController {
       embedding: true,
       supabase: true,
       timestamp: new Date(),
+    };
+  }
+
+  @Post('api/faq')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  async askQuestion(@Body() dto: AskQuestionDto) {
+    this.logger.log(`Received question: ${dto.question}`);
+
+    // Handle session ID
+    let sessionId = dto.sessionId;
+
+    if (!sessionId) {
+      if (this.conversationService) {
+        try {
+          sessionId = await this.conversationService.createSession();
+        } catch (error) {
+          this.logger.warn(`Failed to create session: ${error}`);
+          sessionId = `fallback-${Date.now()}`;
+        }
+      } else {
+        sessionId = `fallback-${Date.now()}`;
+      }
+    }
+
+    // Save user message
+    if (this.conversationService) {
+      try {
+        await this.conversationService.saveMessage(
+          sessionId,
+          'user',
+          dto.question,
+        );
+      } catch (error) {
+        this.logger.warn(`Failed to save user message: ${error}`);
+      }
+    }
+
+    // Get conversation history for context
+    let history: any[] = [];
+    if (this.conversationService) {
+      try {
+        history = await this.conversationService.getConversationHistory(
+          sessionId,
+        );
+      } catch (error) {
+        this.logger.warn(`Failed to get history: ${error}`);
+      }
+    }
+
+    // Get answer from FAQ service
+    const answer = await this.faqService.getAnswer(dto.question, history);
+
+    // Save assistant response
+    if (this.conversationService) {
+      try {
+        await this.conversationService.saveMessage(
+          sessionId,
+          'assistant',
+          answer,
+        );
+      } catch (error) {
+        this.logger.warn(`Failed to save assistant message: ${error}`);
+      }
+    }
+
+    return {
+      sessionId,
+      question: dto.question,
+      answer,
     };
   }
 
