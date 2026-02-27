@@ -48,7 +48,13 @@ export class ChatService {
       // Enforce hard cap to prevent unbounded memory per session
       const cappedLimit = Math.min(limit, MAX_HISTORY_LENGTH);
 
-      const { data, error } = await supabase
+      const {
+        data,
+        error,
+      }: {
+        data: ConversationMessage[] | null;
+        error: { message: string } | null;
+      } = await supabase
         .from('conversation_messages')
         .select('*')
         .eq('session_id', sessionId)
@@ -57,7 +63,7 @@ export class ChatService {
 
       if (error) {
         this.logger.warn(
-          `Failed to load conversation history: ${error.message}`,
+          `Failed to load conversation history: ${String(error.message)}`,
         );
         return [];
       }
@@ -86,7 +92,13 @@ export class ChatService {
         return null;
       }
 
-      const { data, error } = await supabase
+      const {
+        data,
+        error,
+      }: {
+        data: ConversationMessage | null;
+        error: { message: string } | null;
+      } = await supabase
         .from('conversation_messages')
         .insert({
           session_id: sessionId,
@@ -98,10 +110,10 @@ export class ChatService {
         .single();
 
       if (error) {
-        this.logger.error(`Failed to save message: ${error.message}`);
+        this.logger.error(`Failed to save message: ${String(error.message)}`);
         return null;
       }
-      return data as ConversationMessage;
+      return data;
     } catch (err) {
       this.logger.error('Error saving message:', err);
       return null;
