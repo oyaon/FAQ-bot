@@ -4,7 +4,6 @@ import { ChatController } from './chat.controller';
 import { FaqModule } from '../faq/faq.module';
 import { EmbeddingModule } from '../embedding/embedding.module';
 import { LlmModule } from '../llm/llm.module';
-import { SupabaseModule } from '../supabase/supabase.module';
 import { ConversationModule } from '../conversation/conversation.module';
 
 @Module({
@@ -12,7 +11,7 @@ import { ConversationModule } from '../conversation/conversation.module';
     FaqModule,
     EmbeddingModule,
     LlmModule,
-    SupabaseModule,
+    // SupabaseModule is @Global() - imported in AppModule only
     ConversationModule,
   ],
   providers: [ChatService],

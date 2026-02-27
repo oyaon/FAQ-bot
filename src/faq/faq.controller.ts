@@ -1,62 +1,191 @@
-﻿import { Controller, Post, Body, Get } from '@nestjs/common';
+﻿import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  Logger,
+  HttpCode,
+  HttpStatus,
+  Optional,
+} from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
+import {
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+} from 'class-validator';
 import { FaqService } from './faq.service';
 import { EmbeddingService } from '../embedding/embedding.service';
+import { SupabaseService } from '../supabase/supabase.service';
 import { SearchDto } from './dto/search.dto';
 import { FeedbackDto } from './dto/feedback.dto';
-import { ConversationService } from '../conversation/conversation.service';
-import { ContextRewriterService } from '../conversation/context-rewriter.service';
 import { LlmService } from '../llm/llm.service';
+import { RouteType } from '../types/routes';
+import { ConversationService } from '../conversation/conversation.service';
+
+class AskQuestionDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(1000)
+  question: string;
+
+  @IsOptional()
+  @IsUUID()
+  sessionId?: string;
+}
 
 @Controller()
 export class FaqController {
+  private readonly logger = new Logger(FaqController.name);
+
   constructor(
-    private faqService: FaqService,
-    private embeddingService: EmbeddingService,
-    private conversationService: ConversationService,
-    private contextRewriter: ContextRewriterService,
-    private llmService: LlmService,
-  ) {}
+    private readonly faqService: FaqService,
+    private readonly embeddingService: EmbeddingService,
+    private readonly supabaseService: SupabaseService,
+    private readonly llmService: LlmService,
+    @Optional() private readonly conversationService?: ConversationService,
+  ) {
+    if (!this.conversationService) {
+      this.logger.warn(
+        'ConversationService not available. Sessions will use fallback IDs.',
+      );
+    }
+  }
 
   @Get('health')
+  @HttpCode(HttpStatus.OK)
   health() {
-    return { status: 'ok', timestamp: new Date() };
+    const embeddingReady = this.embeddingService.isReady();
+    const supabaseReady = this.supabaseService.isConnected();
+
+    if (!embeddingReady || !supabaseReady) {
+      return {
+        status: 'degraded',
+        embedding: embeddingReady,
+        supabase: supabaseReady,
+        timestamp: new Date(),
+      };
+    }
+
+    return {
+      status: 'ok',
+      embedding: true,
+      supabase: true,
+      timestamp: new Date(),
+    };
+  }
+
+  @Post('api/faq')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  async search(@Body() dto: AskQuestionDto) {
+    this.logger.log(`Received question: ${dto.question}`);
+
+    const question = dto.question?.trim();
+    if (!question) {
+      return {
+        sessionId: dto.sessionId ?? `fallback-${Date.now()}`,
+        question: dto.question,
+        answer: 'Question is required',
+      };
+    }
+
+    // Handle session ID
+    let sessionId = dto.sessionId;
+    if (!sessionId) {
+      if (this.conversationService) {
+        try {
+          sessionId = await this.conversationService.createSession();
+        } catch (error) {
+          this.logger.warn(`Failed to create session: ${error}`);
+          sessionId = `fallback-${Date.now()}`;
+        }
+      } else {
+        sessionId = `fallback-${Date.now()}`;
+      }
+    }
+
+    // Save user message (best-effort)
+    if (this.conversationService) {
+      try {
+        await this.conversationService.saveMessage(sessionId, 'user', question);
+      } catch (error) {
+        this.logger.warn(`Failed to save user message: ${error}`);
+      }
+    }
+
+    // Get conversation history for context (best-effort)
+    let history: any[] = [];
+    if (this.conversationService) {
+      try {
+        history =
+          await this.conversationService.getConversationHistory(sessionId);
+      } catch (error) {
+        this.logger.warn(`Failed to get history: ${error}`);
+      }
+    }
+
+    // Get answer from FAQ service
+    let answer: string;
+    try {
+      answer = await this.faqService.getAnswer(question, history);
+    } catch (error) {
+      this.logger.error(`FAQ answering failed: ${error}`);
+      answer =
+        "I'm having trouble answering your question right now. Please try again later.";
+    }
+
+    // Save assistant response (best-effort)
+    if (this.conversationService) {
+      try {
+        await this.conversationService.saveMessage(
+          sessionId,
+          'assistant',
+          answer,
+        );
+      } catch (error) {
+        this.logger.warn(`Failed to save assistant message: ${error}`);
+      }
+    }
+
+    return {
+      sessionId,
+      question,
+      answer,
+    };
   }
 
   @Post('search')
   @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 searches per minute
-  async search(@Body() dto: SearchDto) {
+  async searchLegacy(@Body() dto: SearchDto) {
     const query = dto.query;
     if (!query || query.trim().length === 0) {
       return { error: 'Query is required' };
     }
 
-    // 1. Get or create session
-    let sessionId = dto.sessionId;
-    if (!sessionId) {
-      sessionId = await this.conversationService.createSession();
-    }
+    // CONVERSATION MEMORY TEMPORARILY DISABLED
+    // let sessionId = dto.sessionId;
+    // if (!sessionId) {
+    //   sessionId = this.conversationService.createSession();
+    // }
+    // const history = this.conversationService.getRecentContext(sessionId);
+    // const rewrittenQuery = this.contextRewriter.rewriteWithContext(dto.query, history);
 
-    // 2. Get conversation history
-    const history = this.conversationService.getRecentContext(sessionId);
-
-    // 3. Rewrite query with context if needed
-    const rewrittenQuery = this.contextRewriter.rewriteWithContext(
-      query,
-      history,
-    );
-    const contextUsed = rewrittenQuery !== query;
+    // Use query directly without context rewriting
+    const historyStrings: string[] = [];
+    const contextUsed = false;
 
     const start = Date.now();
 
     try {
       // Generate embedding
-      const embedding = await this.embeddingService.generate(rewrittenQuery);
+      const embedding = await this.embeddingService.generate(query);
       const results = await this.faqService.searchByVector(embedding, 0.5, 3);
 
       const responseTime = Date.now() - start;
 
-      let route = 'fallback';
+      let route = RouteType.FALLBACK;
       let topFaqId: number | null = null;
       let similarity: number | null = null;
       let queryLogId: number | null = null;
@@ -68,15 +197,15 @@ export class FaqController {
       // 3-TIER ROUTING LOGIC
       if (topResult && topResult.similarity >= 0.8) {
         // HIGH confidence - direct FAQ answer
-        route = 'direct';
+        route = RouteType.DIRECT;
         answer = topResult.answer;
         similarity = Math.round(topResult.similarity * 100);
-        topFaqId = topResult.id;
+        topFaqId = Number(topResult.id);
       } else if (topResult && topResult.similarity >= 0.5) {
         // MEDIUM confidence - use LLM to synthesize
-        route = 'llm_synthesis';
+        route = RouteType.LLM_SYNTHESIS;
         similarity = Math.round(topResult.similarity * 100);
-        topFaqId = topResult.id;
+        topFaqId = Number(topResult.id);
 
         const faqContext = results
           .filter((r) => r.similarity >= 0.4)
@@ -85,8 +214,6 @@ export class FaqController {
             answer: r.answer,
             similarity: r.similarity,
           }));
-
-        const historyStrings = history.map((m) => `${m.role}: ${m.content}`);
 
         const synthesized = await this.llmService.synthesizeAnswer(
           query,
@@ -100,11 +227,11 @@ export class FaqController {
         } else {
           // LLM failed, fall back to best FAQ
           answer = topResult.answer;
-          route = 'direct_fallback';
+          route = RouteType.DIRECT_FALLBACK;
         }
       } else {
         // LOW confidence - graceful fallback
-        route = 'fallback';
+        route = RouteType.FALLBACK;
         answer =
           "I'm not sure about that specific question. " +
           'You can contact our support team at support@example.com ' +
@@ -123,17 +250,13 @@ export class FaqController {
         topResult?.category,
       );
 
-      // Store the exchange in session
-      await this.conversationService.addMessage(sessionId, 'user', query);
-      await this.conversationService.addMessage(sessionId, 'assistant', answer);
-
       return {
         answer,
         route,
         confidence: similarity || 0,
-        sessionId,
+        // sessionId removed - conversation memory disabled
         contextUsed,
-        rewrittenQuery: contextUsed ? rewrittenQuery : undefined,
+        // rewrittenQuery removed - conversation memory disabled
         llmUsed,
         queryLogId,
         topResult: topResult
@@ -143,13 +266,15 @@ export class FaqController {
             }
           : null,
       };
-    } catch (error) {
+    } catch (error: unknown) {
       // Model not ready or other error
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       return {
-        route: 'error',
+        route: RouteType.ERROR,
         message: 'Search is starting up, please try again in a moment.',
-        error: error.message,
-        sessionId,
+        error: errorMessage,
+        // sessionId removed - conversation memory disabled
       };
     }
   }
@@ -158,7 +283,7 @@ export class FaqController {
   async feedback(@Body() dto: FeedbackDto) {
     await this.faqService.saveFeedback(
       dto.queryLogId,
-      dto.helpful,
+      dto.helpful ? 1 : 0, // Convert boolean to number for database
       dto.rating,
       dto.feedback,
       dto.feedbackType,

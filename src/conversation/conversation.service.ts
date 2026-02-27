@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import { SupabaseService } from '../supabase/supabase.service';
 
@@ -12,212 +12,173 @@ export interface Session {
   id: string;
   messages: Message[];
   createdAt: Date;
-  lastActiveAt: Date;
+  updatedAt: Date;
 }
 
 @Injectable()
-export class ConversationService implements OnModuleInit {
+export class ConversationService {
   private readonly logger = new Logger(ConversationService.name);
-  private sessions = new Map<string, Session>();
+  private readonly inMemorySessions = new Map<string, Session>();
+  private useInMemory = false;
 
-  // Clean up old sessions every 30 minutes
-  constructor(private supabaseService: SupabaseService) {
-    setInterval(() => this.cleanup(), 30 * 60 * 1000);
-  }
-
-  async onModuleInit() {
-    // Load recent sessions from Supabase on startup
-    await this.loadRecentSessions();
-  }
-
-  private async loadRecentSessions() {
-    try {
-      const { data, error } = await this.supabaseService
-        .getClient()
-        .from('sessions')
-        .select('*')
-        .gte(
-          'last_active_at',
-          new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-        );
-
-      if (error) {
-        this.logger.warn(
-          'Could not load sessions from Supabase, using in-memory only',
-        );
-        return;
-      }
-
-      if (data) {
-        for (const row of data) {
-          this.sessions.set(row.id, {
-            id: row.id,
-            messages: row.messages || [],
-            createdAt: new Date(row.created_at),
-            lastActiveAt: new Date(row.last_active_at),
-          });
-        }
-        this.logger.log(`Loaded ${data.length} sessions from Supabase`);
-      }
-    } catch (error) {
-      this.logger.warn('Failed to load sessions from Supabase:', error);
+  constructor(@Optional() private readonly supabaseService?: SupabaseService) {
+    if (!this.supabaseService || !this.supabaseService.isConnected()) {
+      this.logger.warn(
+        'Supabase not available. Using in-memory session storage. Sessions will NOT persist across restarts.',
+      );
+      this.useInMemory = true;
     }
   }
 
   async createSession(): Promise<string> {
-    const id = uuidv4();
+    const sessionId = uuidv4();
     const session: Session = {
-      id,
+      id: sessionId,
       messages: [],
       createdAt: new Date(),
-      lastActiveAt: new Date(),
+      updatedAt: new Date(),
     };
 
-    this.sessions.set(id, session);
-
-    // Persist to Supabase
-    try {
-      await this.supabaseService.getClient().from('sessions').insert({
-        id,
-        messages: [],
-        created_at: session.createdAt.toISOString(),
-        last_active_at: session.lastActiveAt.toISOString(),
-      });
-    } catch (error) {
-      this.logger.warn('Failed to persist session to Supabase:', error);
+    if (this.useInMemory || !this.supabaseService?.isConnected()) {
+      this.inMemorySessions.set(sessionId, session);
+      this.logger.debug(`Created in-memory session: ${sessionId}`);
+      return sessionId;
     }
 
-    return id;
+    try {
+      const client = this.supabaseService.getClient();
+      if (!client) {
+        this.inMemorySessions.set(sessionId, session);
+        return sessionId;
+      }
+
+      const { error } = await client.from('sessions').insert({
+        id: sessionId,
+        messages: [],
+        created_at: session.createdAt.toISOString(),
+        updated_at: session.updatedAt.toISOString(),
+      });
+
+      if (error) {
+        this.logger.warn(
+          `Supabase insert failed, using in-memory: ${error.message}`,
+        );
+        this.inMemorySessions.set(sessionId, session);
+      } else {
+        this.logger.debug(`Created Supabase session: ${sessionId}`);
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Failed to create session in Supabase, using in-memory: ${error}`,
+      );
+      this.inMemorySessions.set(sessionId, session);
+    }
+
+    return sessionId;
   }
 
   async getSession(sessionId: string): Promise<Session | null> {
-    // Try in-memory first
-    let session = this.sessions.get(sessionId);
-
-    if (!session) {
-      // Try loading from Supabase
-      try {
-        const { data, error } = await this.supabaseService
-          .getClient()
-          .from('sessions')
-          .select('*')
-          .eq('id', sessionId)
-          .single();
-
-        if (!error && data) {
-          session = {
-            id: data.id,
-            messages: data.messages || [],
-            createdAt: new Date(data.created_at),
-            lastActiveAt: new Date(data.last_active_at),
-          };
-          this.sessions.set(sessionId, session);
-        }
-      } catch (error) {
-        this.logger.warn('Failed to load session from Supabase:', error);
-      }
+    // Check in-memory first
+    if (this.inMemorySessions.has(sessionId)) {
+      return this.inMemorySessions.get(sessionId) || null;
     }
 
-    if (!session) return null;
+    if (this.useInMemory || !this.supabaseService?.isConnected()) {
+      return null;
+    }
 
-    session.lastActiveAt = new Date();
-
-    // Update last_active_at in Supabase
     try {
-      await this.supabaseService
-        .getClient()
-        .from('sessions')
-        .update({ last_active_at: session.lastActiveAt.toISOString() })
-        .eq('id', sessionId);
-    } catch (error) {
-      // Silently fail - in-memory is still valid
-    }
+      const client = this.supabaseService.getClient();
+      if (!client) return null;
 
-    return session;
+      const { data, error } = await client
+        .from('sessions')
+        .select('*')
+        .eq('id', sessionId)
+        .single();
+
+      if (error || !data) {
+        this.logger.warn(`Session not found: ${sessionId}`);
+        return null;
+      }
+
+      return {
+        id: data.id,
+        messages: data.messages || [],
+        createdAt: new Date(data.created_at),
+        updatedAt: new Date(data.updated_at),
+      };
+    } catch (error) {
+      this.logger.warn(`Failed to get session from Supabase: ${error}`);
+      return null;
+    }
   }
 
-  async addMessage(
+  async saveMessage(
     sessionId: string,
     role: 'user' | 'assistant',
     content: string,
   ): Promise<void> {
-    let session = this.sessions.get(sessionId);
-
-    if (!session) {
-      // Try to load from Supabase
-      await this.getSession(sessionId);
-      session = this.sessions.get(sessionId);
-    }
-
-    if (!session) {
-      this.logger.warn(`Session ${sessionId} not found, creating new one`);
-      session = {
-        id: sessionId,
-        messages: [],
-        createdAt: new Date(),
-        lastActiveAt: new Date(),
-      };
-      this.sessions.set(sessionId, session);
-    }
-
-    session.messages.push({
+    const message: Message = {
       role,
       content,
       timestamp: new Date(),
-    });
+    };
 
-    session.lastActiveAt = new Date();
-
-    // Keep only last 10 messages to prevent memory bloat
-    if (session.messages.length > 10) {
-      session.messages = session.messages.slice(-10);
+    // Update in-memory if it exists there
+    const inMemorySession = this.inMemorySessions.get(sessionId);
+    if (inMemorySession) {
+      inMemorySession.messages.push(message);
+      inMemorySession.updatedAt = new Date();
+      this.logger.debug(`Saved message to in-memory session: ${sessionId}`);
+      return;
     }
 
-    // Persist to Supabase
+    if (this.useInMemory || !this.supabaseService?.isConnected()) {
+      // Create a new in-memory session for this message
+      this.inMemorySessions.set(sessionId, {
+        id: sessionId,
+        messages: [message],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      return;
+    }
+
     try {
-      await this.supabaseService.getClient().from('sessions').upsert(
-        {
-          id: sessionId,
-          messages: session.messages,
-          last_active_at: session.lastActiveAt.toISOString(),
-        },
-        { onConflict: 'id' },
-      );
+      const client = this.supabaseService.getClient();
+      if (!client) return;
+
+      // Get existing messages
+      const { data } = await client
+        .from('sessions')
+        .select('messages')
+        .eq('id', sessionId)
+        .single();
+
+      const existingMessages = data?.messages || [];
+      existingMessages.push(message);
+
+      const { error } = await client
+        .from('sessions')
+        .update({
+          messages: existingMessages,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', sessionId);
+
+      if (error) {
+        this.logger.warn(
+          `Failed to save message to Supabase: ${error.message}`,
+        );
+      }
     } catch (error) {
-      this.logger.warn('Failed to persist message to Supabase:', error);
+      this.logger.warn(`Failed to save message: ${error}`);
     }
   }
 
-  getRecentContext(sessionId: string, count = 4): Message[] {
-    const session = this.sessions.get(sessionId);
-    if (!session) return [];
-
-    return session.messages.slice(-count);
-  }
-
-  private async cleanup(): Promise<void> {
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-    const toDelete: string[] = [];
-
-    for (const [id, session] of this.sessions) {
-      if (session.lastActiveAt < oneHourAgo) {
-        toDelete.push(id);
-        this.sessions.delete(id);
-      }
-    }
-
-    // Delete from Supabase
-    if (toDelete.length > 0) {
-      try {
-        await this.supabaseService
-          .getClient()
-          .from('sessions')
-          .delete()
-          .in('id', toDelete);
-        this.logger.log(`Cleaned up ${toDelete.length} expired sessions`);
-      } catch (error) {
-        this.logger.warn('Failed to delete sessions from Supabase:', error);
-      }
-    }
+  async getConversationHistory(sessionId: string): Promise<Message[]> {
+    const session = await this.getSession(sessionId);
+    return session?.messages || [];
   }
 }

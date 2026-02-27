@@ -1,24 +1,41 @@
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
-import { pipeline } from '@xenova/transformers';
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  OnModuleDestroy,
+} from '@nestjs/common';
+import { pipeline, Pipeline } from '@xenova/transformers';
 
 @Injectable()
 export class EmbeddingService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(EmbeddingService.name);
-  private extractor: any = null;
+  private extractor: Pipeline | null = null;
+  private isModelReady = false;
 
   async onModuleInit() {
     try {
-      this.logger.log('Loading embedding model (first run may take 1-2 minutes)...');
+      this.logger.log(
+        'Loading embedding model (first run may take 1-2 minutes)...',
+      );
       // Load the feature extraction pipeline
-      this.extractor = await pipeline(
+      // Using type assertion to handle the @xenova/transformers type mismatch
+      this.extractor = (await pipeline(
         'feature-extraction',
         'Xenova/all-MiniLM-L6-v2',
-      );
+      )) as unknown as Pipeline;
+      this.isModelReady = true;
       this.logger.log('Embedding model loaded successfully');
     } catch (error) {
       this.logger.error('Failed to load embedding model:', error);
       throw error;
     }
+  }
+
+  /**
+   * Check if the embedding model is ready
+   */
+  public isReady(): boolean {
+    return this.isModelReady && this.extractor !== null;
   }
 
   async generate(text: string): Promise<number[]> {
@@ -43,8 +60,7 @@ export class EmbeddingService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async onModuleDestroy() {
+  async onModuleDestroy(): Promise<void> {
     this.extractor = null;
-    // this.cache.clear(); // Note: code from prompt suggests `this.cache.clear()` but it isn't defined here, leaving it out or I'll implement it if there's a cache
   }
 }

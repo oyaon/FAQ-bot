@@ -45,4 +45,4 @@ if (!faqId) {
   process.exit(1);
 }
 
-regenerateOne(parseInt(faqId)).catch(console.error);
+regenerateOne(faqId).catch(console.error);

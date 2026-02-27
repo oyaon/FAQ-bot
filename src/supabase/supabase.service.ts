@@ -1,44 +1,42 @@
-import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 @Injectable()
-export class SupabaseService implements OnModuleDestroy {
+export class SupabaseService implements OnModuleInit {
+  private client: SupabaseClient | null = null;
   private readonly logger = new Logger(SupabaseService.name);
-  private supabase: SupabaseClient;
+  private isAvailable = false;
 
-  constructor() {
+  onModuleInit(): void {
     const url = process.env.SUPABASE_URL;
-    const key = process.env.SUPABASE_ANON_KEY;
+    // Support both names to avoid breaking existing deployments.
+    const key = process.env.SUPABASE_KEY || process.env.SUPABASE_ANON_KEY;
+
     if (!url || !key) {
-      this.logger.error('Missing Supabase credentials');
-      throw new Error('Supabase credentials not configured');
-    }
-    this.supabase = createClient(url, key) as SupabaseClient;
-  }
-
-  getClient(): SupabaseClient {
-    return this.supabase;
-  }
-
-  async onModuleDestroy() {
-    // Close any open connections
-    // Supabase client doesn't need explicit cleanup
-    // but this hook allows Jest to exit cleanly
-  }
-
-  async query(
-    table: string,
-    queryFn: (client: SupabaseClient) => Promise<unknown>,
-  ): Promise<unknown> {
-    try {
-      return await queryFn(this.supabase);
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
-      this.logger.error(
-        `Supabase query error on table ${table}: ${errorMessage}`,
+      this.logger.warn(
+        'SUPABASE_URL or SUPABASE_KEY not set. Supabase is disabled. Data will not persist.',
       );
-      throw new Error('Database operation failed');
+      this.client = null;
+      this.isAvailable = false;
+      return;
     }
+
+    try {
+      this.client = createClient(url, key);
+      this.isAvailable = true;
+      this.logger.log('Supabase client initialized successfully');
+    } catch (error) {
+      this.logger.error('Failed to initialize Supabase client:', error);
+      this.client = null;
+      this.isAvailable = false;
+    }
+  }
+
+  getClient(): SupabaseClient | null {
+    return this.client;
+  }
+
+  isConnected(): boolean {
+    return this.isAvailable && this.client !== null;
   }
 }

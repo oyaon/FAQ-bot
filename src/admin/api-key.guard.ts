@@ -5,18 +5,20 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Request } from 'express';
 
 @Injectable()
 export class ApiKeyGuard implements CanActivate {
-  constructor(private configService: ConfigService) { }
+  constructor(private configService: ConfigService) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<Request>();
     const apiKey = request.headers['x-api-key'];
 
     // Try ConfigService first, fall back to process.env
-    const validKey = this.configService?.get<string>('ADMIN_API_KEY')
-      || process.env.ADMIN_API_KEY;
+    const validKey =
+      this.configService?.get<string>('ADMIN_API_KEY') ||
+      process.env.ADMIN_API_KEY;
 
     if (!validKey) {
       throw new UnauthorizedException('ADMIN_API_KEY not configured');

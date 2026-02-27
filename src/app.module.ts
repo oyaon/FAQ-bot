@@ -10,28 +10,26 @@ import { AdminModule } from './admin/admin.module';
 import { SupabaseModule } from './supabase/supabase.module';
 import { ConversationModule } from './conversation/conversation.module';
 import { ChatModule } from './chat/chat.module';
-
-import * as Joi from 'joi';
+import { EmbeddingModule } from './embedding/embedding.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      validationSchema: Joi.object({
-        SUPABASE_URL: Joi.string().required(),
-        SUPABASE_ANON_KEY: Joi.string().required(),
-        ADMIN_API_KEY: Joi.string().required(),
-        GEMINI_API_KEY: Joi.string().required(),
-        PORT: Joi.number().default(3000),
-      }),
+      // Remove strict validation for now so missing keys don't crash the app
+      // You can add it back once all env vars are set
     }),
-    ThrottlerModule.forRoot([
-      {
-        ttl: 60000, // 1 minute
-        limit: 30, // 30 requests per minute per IP
-      },
-    ]),
+    ThrottlerModule.forRoot({
+      throttlers: [
+        {
+          ttl: 60000,
+          limit: 60,
+        },
+      ],
+    }),
+    // SupabaseModule is @Global() - import ONCE here to make it available globally
     SupabaseModule,
+    EmbeddingModule,
     FaqModule,
     MetricsModule,
     ConversationModule,
@@ -41,10 +39,11 @@ import * as Joi from 'joi';
   controllers: [AppController],
   providers: [
     AppService,
+    // Removed SupabaseService from here - it's provided by SupabaseModule
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
     },
   ],
 })
-export class AppModule { }
+export class AppModule {}

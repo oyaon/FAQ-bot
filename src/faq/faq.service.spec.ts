@@ -76,7 +76,7 @@ describe('FaqService', () => {
       const result = await service.searchByVector(embedding);
 
       expect(result).toEqual(mockResults);
-      expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('match_faq', {
+      expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('match_faqs', {
         query_embedding: embedding,
         match_threshold: 0.5,
         match_count: 3,
@@ -97,7 +97,7 @@ describe('FaqService', () => {
       const result = await service.searchByVector(embedding, 0.7, 5);
 
       expect(result).toEqual(mockResults);
-      expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('match_faq', {
+      expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('match_faqs', {
         query_embedding: embedding,
         match_threshold: 0.7,
         match_count: 5,
@@ -136,6 +136,25 @@ describe('FaqService', () => {
       const embedding = [0.1, 0.2, 0.3];
 
       mockSupabaseClient.rpc.mockRejectedValue(new Error('Network error'));
+
+      const result = await service.searchByVector(embedding);
+
+      expect(result).toEqual([]);
+    });
+
+    // Test for missing RPC function
+    it('should return empty array when RPC function does not exist', async () => {
+      const embedding = [0.1, 0.2, 0.3];
+
+      mockSupabaseClient.rpc.mockResolvedValue({
+        data: null,
+        error: {
+          message: 'function search_faqs does not exist',
+          code: 'PGRST116',
+          details: null,
+          hint: null,
+        },
+      });
 
       const result = await service.searchByVector(embedding);
 

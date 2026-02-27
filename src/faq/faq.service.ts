@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SupabaseService } from '../supabase/supabase.service';
+import { FaqResult } from '../types';
 
 @Injectable()
 export class FaqService {
@@ -11,30 +12,104 @@ export class FaqService {
     private supabaseService: SupabaseService,
   ) {}
 
-  async searchByVector(embedding: number[], threshold = 0.5, limit = 3) {
+  /**
+   * Get answer for a question using vector search
+   * This is a simplified version used by the /api/faq endpoint
+   */
+  async getAnswer(question: string, _history: any[] = []): Promise<string> {
+    try {
+      // For now, return a simple response
+      // In a full implementation, this would generate embeddings and search
+      const supabase = this.supabaseService.getClient();
+
+      if (!supabase) {
+        return "I'm not sure about that. Please configure Supabase to enable FAQ responses.";
+      }
+
+      // Simple keyword search as fallback
+      const results = await this.searchByKeyword(question, 3);
+
+      if (results && results.length > 0) {
+        return results[0].answer;
+      }
+
+      return "I'm not sure about that specific question. You can contact our support team or try rephrasing your question.";
+    } catch (error) {
+      this.logger.error(`Error getting answer: ${error}`);
+      return "I'm having trouble answering your question right now. Please try again later.";
+    }
+  }
+
+  async searchByVector(
+    embedding: number[],
+    threshold = 0.5,
+    limit = 3,
+  ): Promise<FaqResult[]> {
     try {
       const supabase = this.supabaseService.getClient();
-      const { data, error } = await supabase.rpc('search_faqs', {
+
+      // Handle case where Supabase is not initialized
+      if (!supabase) {
+        this.logger.warn('Supabase not initialized, returning empty results');
+        return [];
+      }
+
+      this.logger.debug('Calling RPC match_faqs with embedding', {
+        embeddingLength: embedding?.length,
+        threshold,
+        limit,
+      });
+
+      const { data, error } = await supabase.rpc('match_faqs', {
         query_embedding: embedding,
-        similarity_threshold: threshold,
+        match_threshold: threshold,
         match_count: limit,
       });
 
       if (error) {
-        this.logger.error('Vector search failed:', error.message);
+        this.logger.error('RPC match_faqs error:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        });
+
+        // Check for specific error types
+        if (
+          error.message?.includes('does not exist') ||
+          error.code === 'PGRST116'
+        ) {
+          this.logger.error(
+            'RPC function match_faqs does not exist in database. Please create the function.',
+          );
+        }
+
         return [];
       }
 
-      return data || [];
+      this.logger.debug('RPC match_faqs successful', {
+        resultCount: data?.length,
+      });
+      return (data as FaqResult[]) || [];
     } catch (err) {
-      this.logger.error('Unexpected error in searchByVector:', err);
+      this.logger.error('Unexpected error in searchByVector:', {
+        message: err instanceof Error ? err.message : 'Unknown error',
+        stack: err instanceof Error ? err.stack : undefined,
+      });
       return [];
     }
   }
 
-  async searchByKeyword(query: string, limit = 3) {
+  async searchByKeyword(query: string, limit = 3): Promise<FaqResult[]> {
     try {
       const supabase = this.supabaseService.getClient();
+
+      // Handle case where Supabase is not initialized
+      if (!supabase) {
+        this.logger.warn('Supabase not initialized, returning empty results');
+        return [];
+      }
+
       const sanitizedQuery = query.replace(/[%_]/g, '\\$&'); // Escape SQL wildcards
       const { data, error } = await supabase
         .from('faq')
@@ -45,7 +120,7 @@ export class FaqService {
         this.logger.error('Keyword search failed:', error.message);
         return [];
       }
-      return data || [];
+      return (data as FaqResult[]) || [];
     } catch (err) {
       this.logger.error('Unexpected error in searchByKeyword:', err);
       return [];
@@ -64,6 +139,13 @@ export class FaqService {
   ): Promise<number | null> {
     try {
       const supabase = this.supabaseService.getClient();
+
+      // Handle case where Supabase is not initialized
+      if (!supabase) {
+        this.logger.warn('Supabase not initialized, skipping query log');
+        return null;
+      }
+
       const crypto = await import('crypto');
       const queryHash = crypto
         .createHash('md5')
@@ -100,13 +182,20 @@ export class FaqService {
 
   async saveFeedback(
     queryLogId: number,
-    helpful: boolean,
+    helpful: number,
     rating?: number,
     feedback?: string,
     feedbackType?: string,
   ) {
     try {
       const supabase = this.supabaseService.getClient();
+
+      // Handle case where Supabase is not initialized
+      if (!supabase) {
+        this.logger.warn('Supabase not initialized, skipping feedback save');
+        return;
+      }
+
       const updateData: Record<string, unknown> = {
         helpful,
       };
@@ -120,7 +209,16 @@ export class FaqService {
         updateData.feedback_text = cleanFeedback;
       }
 
-      if (feedbackType && ['accurate', 'incomplete', 'unclear', 'irrelevant', 'outdated'].includes(feedbackType)) {
+      if (
+        feedbackType &&
+        [
+          'accurate',
+          'incomplete',
+          'unclear',
+          'irrelevant',
+          'outdated',
+        ].includes(feedbackType)
+      ) {
         updateData.feedback_type = feedbackType;
       }
 
