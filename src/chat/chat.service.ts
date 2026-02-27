@@ -38,16 +38,16 @@ export class ChatService {
   ): Promise<ConversationMessage[]> {
     try {
       const supabase = this.supabaseService.getClient();
-      
+
       // Handle case where Supabase is not initialized
       if (!supabase) {
         this.logger.warn('Supabase not initialized, returning empty history');
         return [];
       }
-      
+
       // Enforce hard cap to prevent unbounded memory per session
       const cappedLimit = Math.min(limit, MAX_HISTORY_LENGTH);
-      
+
       const { data, error } = await supabase
         .from('conversation_messages')
         .select('*')
@@ -79,13 +79,13 @@ export class ChatService {
   ): Promise<ConversationMessage | null> {
     try {
       const supabase = this.supabaseService.getClient();
-      
+
       // Handle case where Supabase is not initialized
       if (!supabase) {
         this.logger.warn('Supabase not initialized, skipping message save');
         return null;
       }
-      
+
       const { data, error } = await supabase
         .from('conversation_messages')
         .insert({
@@ -266,4 +266,3 @@ export class ChatService {
     }
   }
 }
-

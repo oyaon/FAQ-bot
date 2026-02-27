@@ -29,9 +29,7 @@ export class CorrelationIdInterceptor implements NestInterceptor {
     response.setHeader('x-correlation-id', correlationId);
 
     // Log the request with correlation ID
-    this.logger.log(
-      `[${correlationId}] ${request.method} ${request.path}`,
-    );
+    this.logger.log(`[${correlationId}] ${request.method} ${request.path}`);
 
     return next.handle().pipe(
       tap(() => {
@@ -42,4 +40,3 @@ export class CorrelationIdInterceptor implements NestInterceptor {
     );
   }
 }
-

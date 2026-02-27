@@ -1,4 +1,11 @@
-﻿import { IsString, IsNotEmpty, MaxLength, MinLength, IsOptional, IsUUID } from 'class-validator';
+﻿import {
+  IsString,
+  IsNotEmpty,
+  MaxLength,
+  MinLength,
+  IsOptional,
+  IsUUID,
+} from 'class-validator';
 
 export class SearchDto {
   @IsString()
@@ -11,4 +18,3 @@ export class SearchDto {
   @IsUUID()
   sessionId?: string;
 }
-

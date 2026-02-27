@@ -7,14 +7,16 @@ export class SupabaseService implements OnModuleInit {
   private readonly logger = new Logger(SupabaseService.name);
   private isAvailable = false;
 
-  onModuleInit() {
+  onModuleInit(): void {
     const url = process.env.SUPABASE_URL;
-    const key = process.env.SUPABASE_KEY;
+    // Support both names to avoid breaking existing deployments.
+    const key = process.env.SUPABASE_KEY || process.env.SUPABASE_ANON_KEY;
 
     if (!url || !key) {
       this.logger.warn(
         'SUPABASE_URL or SUPABASE_KEY not set. Supabase is disabled. Data will not persist.',
       );
+      this.client = null;
       this.isAvailable = false;
       return;
     }
@@ -25,6 +27,7 @@ export class SupabaseService implements OnModuleInit {
       this.logger.log('Supabase client initialized successfully');
     } catch (error) {
       this.logger.error('Failed to initialize Supabase client:', error);
+      this.client = null;
       this.isAvailable = false;
     }
   }
@@ -37,4 +40,3 @@ export class SupabaseService implements OnModuleInit {
     return this.isAvailable && this.client !== null;
   }
 }
-

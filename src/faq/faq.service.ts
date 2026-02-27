@@ -21,14 +21,14 @@ export class FaqService {
       // For now, return a simple response
       // In a full implementation, this would generate embeddings and search
       const supabase = this.supabaseService.getClient();
-      
+
       if (!supabase) {
         return "I'm not sure about that. Please configure Supabase to enable FAQ responses.";
       }
 
       // Simple keyword search as fallback
       const results = await this.searchByKeyword(question, 3);
-      
+
       if (results && results.length > 0) {
         return results[0].answer;
       }
@@ -47,7 +47,7 @@ export class FaqService {
   ): Promise<FaqResult[]> {
     try {
       const supabase = this.supabaseService.getClient();
-      
+
       // Handle case where Supabase is not initialized
       if (!supabase) {
         this.logger.warn('Supabase not initialized, returning empty results');
@@ -103,13 +103,13 @@ export class FaqService {
   async searchByKeyword(query: string, limit = 3): Promise<FaqResult[]> {
     try {
       const supabase = this.supabaseService.getClient();
-      
+
       // Handle case where Supabase is not initialized
       if (!supabase) {
         this.logger.warn('Supabase not initialized, returning empty results');
         return [];
       }
-      
+
       const sanitizedQuery = query.replace(/[%_]/g, '\\$&'); // Escape SQL wildcards
       const { data, error } = await supabase
         .from('faq')
@@ -139,13 +139,13 @@ export class FaqService {
   ): Promise<number | null> {
     try {
       const supabase = this.supabaseService.getClient();
-      
+
       // Handle case where Supabase is not initialized
       if (!supabase) {
         this.logger.warn('Supabase not initialized, skipping query log');
         return null;
       }
-      
+
       const crypto = await import('crypto');
       const queryHash = crypto
         .createHash('md5')
@@ -189,13 +189,13 @@ export class FaqService {
   ) {
     try {
       const supabase = this.supabaseService.getClient();
-      
+
       // Handle case where Supabase is not initialized
       if (!supabase) {
         this.logger.warn('Supabase not initialized, skipping feedback save');
         return;
       }
-      
+
       const updateData: Record<string, unknown> = {
         helpful,
       };

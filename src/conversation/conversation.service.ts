@@ -8,7 +8,7 @@ export interface Message {
   timestamp: Date;
 }
 
-interface Session {
+export interface Session {
   id: string;
   messages: Message[];
   createdAt: Date;
@@ -21,9 +21,7 @@ export class ConversationService {
   private readonly inMemorySessions = new Map<string, Session>();
   private useInMemory = false;
 
-  constructor(
-    @Optional() private readonly supabaseService: SupabaseService,
-  ) {
+  constructor(@Optional() private readonly supabaseService?: SupabaseService) {
     if (!this.supabaseService || !this.supabaseService.isConnected()) {
       this.logger.warn(
         'Supabase not available. Using in-memory session storage. Sessions will NOT persist across restarts.',
@@ -62,13 +60,17 @@ export class ConversationService {
       });
 
       if (error) {
-        this.logger.warn(`Supabase insert failed, using in-memory: ${error.message}`);
+        this.logger.warn(
+          `Supabase insert failed, using in-memory: ${error.message}`,
+        );
         this.inMemorySessions.set(sessionId, session);
       } else {
         this.logger.debug(`Created Supabase session: ${sessionId}`);
       }
     } catch (error) {
-      this.logger.warn(`Failed to create session in Supabase, using in-memory: ${error}`);
+      this.logger.warn(
+        `Failed to create session in Supabase, using in-memory: ${error}`,
+      );
       this.inMemorySessions.set(sessionId, session);
     }
 
@@ -166,7 +168,9 @@ export class ConversationService {
         .eq('id', sessionId);
 
       if (error) {
-        this.logger.warn(`Failed to save message to Supabase: ${error.message}`);
+        this.logger.warn(
+          `Failed to save message to Supabase: ${error.message}`,
+        );
       }
     } catch (error) {
       this.logger.warn(`Failed to save message: ${error}`);
@@ -178,4 +182,3 @@ export class ConversationService {
     return session?.messages || [];
   }
 }
-

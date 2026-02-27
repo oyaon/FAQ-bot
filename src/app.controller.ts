@@ -17,19 +17,31 @@ export class AppController {
   }
 
   @Get('health')
-  health(): { status: string; timestamp: string; services?: { embedding?: string; supabase?: string } } {
+  health(): {
+    status: string;
+    timestamp: string;
+    services?: { embedding?: string; supabase?: string };
+  } {
     // Debug logging
     console.log('[DEBUG] AppController health() called');
     console.log('[DEBUG] SupabaseService instance:', this.supabaseService);
-    console.log('[DEBUG] SupabaseService isConnected:', this.supabaseService?.isConnected?.());
-    
+    console.log(
+      '[DEBUG] SupabaseService isConnected:',
+      this.supabaseService?.isConnected?.(),
+    );
+
     const embeddingReady = this.embeddingService?.isReady?.() ?? false;
     const supabaseReady = this.supabaseService?.isConnected() ?? false;
-    
-    console.log('[DEBUG] embeddingReady:', embeddingReady, 'supabaseReady:', supabaseReady);
-    
+
+    console.log(
+      '[DEBUG] embeddingReady:',
+      embeddingReady,
+      'supabaseReady:',
+      supabaseReady,
+    );
+
     const services: { embedding?: string; supabase?: string } = {};
-    
+
     if (!embeddingReady) {
       services.embedding = 'initializing';
     }
@@ -40,10 +52,10 @@ export class AppController {
     // If any service is not ready, status should indicate that
     const status = embeddingReady && supabaseReady ? 'ok' : 'degraded';
 
-    return { 
-      status, 
+    return {
+      status,
       timestamp: new Date().toISOString(),
-      services: Object.keys(services).length > 0 ? services : undefined
+      services: Object.keys(services).length > 0 ? services : undefined,
     };
   }
 

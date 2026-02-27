@@ -68,7 +68,9 @@ export class LlmService {
   ): Promise<string | null> {
     // Input length validation - truncate long queries to prevent excessive token usage
     if (userQuery.length > 2000) {
-      this.logger.warn(`User query truncated from ${userQuery.length} to 2000 characters`);
+      this.logger.warn(
+        `User query truncated from ${userQuery.length} to 2000 characters`,
+      );
       userQuery = userQuery.substring(0, 2000);
     }
 
@@ -87,7 +89,9 @@ export class LlmService {
       const avgFaqLength = faqContextTest.length / relevantFaqs.length;
       const maxFaqs = Math.max(1, Math.floor(4000 / avgFaqLength));
       truncatedFaqs = relevantFaqs.slice(0, maxFaqs);
-      this.logger.warn(`FAQ context truncated from ${relevantFaqs.length} to ${maxFaqs} items`);
+      this.logger.warn(
+        `FAQ context truncated from ${relevantFaqs.length} to ${maxFaqs} items`,
+      );
     }
 
     if (!this.apiKey) {

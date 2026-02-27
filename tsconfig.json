@@ -13,6 +13,7 @@
     "declarationMap": true,
     "sourceMap": true,
     "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
     "noImplicitReturns": false,
     "baseUrl": "./",
     "paths": {
@@ -22,4 +23,3 @@
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "test", "**/*spec.ts"]
 }
-

@@ -104,7 +104,8 @@ async function bootstrap() {
             }
           })
           .catch((err: unknown) => {
-            const errorMessage = err instanceof Error ? err.message : String(err);
+            const errorMessage =
+              err instanceof Error ? err.message : String(err);
             logger.error(`Health check error: ${errorMessage}`);
           });
       },
@@ -137,4 +138,3 @@ bootstrap().catch((err) => {
   logger.error('Bootstrap failed:', err);
   process.exit(1);
 });
-

@@ -9,6 +9,13 @@
   Optional,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
+import {
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+} from 'class-validator';
 import { FaqService } from './faq.service';
 import { EmbeddingService } from '../embedding/embedding.service';
 import { SupabaseService } from '../supabase/supabase.service';
@@ -19,7 +26,13 @@ import { RouteType } from '../types/routes';
 import { ConversationService } from '../conversation/conversation.service';
 
 class AskQuestionDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(1000)
   question: string;
+
+  @IsOptional()
+  @IsUUID()
   sessionId?: string;
 }
 
@@ -28,11 +41,11 @@ export class FaqController {
   private readonly logger = new Logger(FaqController.name);
 
   constructor(
-    private faqService: FaqService,
-    private embeddingService: EmbeddingService,
-    private supabaseService: SupabaseService,
-    private llmService: LlmService,
-    @Optional() private readonly conversationService: ConversationService,
+    private readonly faqService: FaqService,
+    private readonly embeddingService: EmbeddingService,
+    private readonly supabaseService: SupabaseService,
+    private readonly llmService: LlmService,
+    @Optional() private readonly conversationService?: ConversationService,
   ) {
     if (!this.conversationService) {
       this.logger.warn(
@@ -43,7 +56,7 @@ export class FaqController {
 
   @Get('health')
   @HttpCode(HttpStatus.OK)
-  async health() {
+  health() {
     const embeddingReady = this.embeddingService.isReady();
     const supabaseReady = this.supabaseService.isConnected();
 
@@ -66,12 +79,20 @@ export class FaqController {
 
   @Post('api/faq')
   @Throttle({ default: { limit: 10, ttl: 60000 } })
-  async askQuestion(@Body() dto: AskQuestionDto) {
+  async search(@Body() dto: AskQuestionDto) {
     this.logger.log(`Received question: ${dto.question}`);
+
+    const question = dto.question?.trim();
+    if (!question) {
+      return {
+        sessionId: dto.sessionId ?? `fallback-${Date.now()}`,
+        question: dto.question,
+        answer: 'Question is required',
+      };
+    }
 
     // Handle session ID
     let sessionId = dto.sessionId;
-
     if (!sessionId) {
       if (this.conversationService) {
         try {
@@ -85,35 +106,37 @@ export class FaqController {
       }
     }
 
-    // Save user message
+    // Save user message (best-effort)
     if (this.conversationService) {
       try {
-        await this.conversationService.saveMessage(
-          sessionId,
-          'user',
-          dto.question,
-        );
+        await this.conversationService.saveMessage(sessionId, 'user', question);
       } catch (error) {
         this.logger.warn(`Failed to save user message: ${error}`);
       }
     }
 
-    // Get conversation history for context
+    // Get conversation history for context (best-effort)
     let history: any[] = [];
     if (this.conversationService) {
       try {
-        history = await this.conversationService.getConversationHistory(
-          sessionId,
-        );
+        history =
+          await this.conversationService.getConversationHistory(sessionId);
       } catch (error) {
         this.logger.warn(`Failed to get history: ${error}`);
       }
     }
 
     // Get answer from FAQ service
-    const answer = await this.faqService.getAnswer(dto.question, history);
+    let answer: string;
+    try {
+      answer = await this.faqService.getAnswer(question, history);
+    } catch (error) {
+      this.logger.error(`FAQ answering failed: ${error}`);
+      answer =
+        "I'm having trouble answering your question right now. Please try again later.";
+    }
 
-    // Save assistant response
+    // Save assistant response (best-effort)
     if (this.conversationService) {
       try {
         await this.conversationService.saveMessage(
@@ -128,14 +151,14 @@ export class FaqController {
 
     return {
       sessionId,
-      question: dto.question,
+      question,
       answer,
     };
   }
 
   @Post('search')
   @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 searches per minute
-  async search(@Body() dto: SearchDto) {
+  async searchLegacy(@Body() dto: SearchDto) {
     const query = dto.query;
     if (!query || query.trim().length === 0) {
       return { error: 'Query is required' };

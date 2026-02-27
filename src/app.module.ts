@@ -47,4 +47,3 @@ import { EmbeddingModule } from './embedding/embedding.module';
   ],
 })
 export class AppModule {}
-

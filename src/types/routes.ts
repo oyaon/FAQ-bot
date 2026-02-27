@@ -7,10 +7,11 @@ export enum RouteType {
 }
 
 export function isLlmRoute(route: string): boolean {
-  return route === RouteType.LLM_SYNTHESIS || route === RouteType.DIRECT_FALLBACK;
+  return (
+    route === RouteType.LLM_SYNTHESIS || route === RouteType.DIRECT_FALLBACK
+  );
 }
 
 export function isDirectRoute(route: string): boolean {
   return route === RouteType.DIRECT || route === RouteType.DIRECT_FALLBACK;
 }
-

@@ -29,9 +29,13 @@ export class MetricsService {
         .from('query_logs')
         .select('similarity');
 
-      const avgSimilarity = similarityData && similarityData.length > 0
-        ? similarityData.reduce((sum, row) => sum + (row.similarity || 0), 0) / similarityData.length
-        : 0;
+      const avgSimilarity =
+        similarityData && similarityData.length > 0
+          ? similarityData.reduce(
+              (sum, row) => sum + (row.similarity || 0),
+              0,
+            ) / similarityData.length
+          : 0;
 
       // Get route breakdown
       const { data: routeData } = await client
@@ -68,9 +72,7 @@ export class MetricsService {
     }
 
     try {
-      const { data } = await client
-        .from('query_logs')
-        .select('query_text');
+      const { data } = await client.from('query_logs').select('query_text');
 
       if (!data) return [];
 
@@ -101,9 +103,7 @@ export class MetricsService {
     }
 
     try {
-      const { data } = await client
-        .from('query_logs')
-        .select('route');
+      const { data } = await client.from('query_logs').select('route');
 
       if (!data) {
         return { direct: 0, llm: 0, fallback: 0 };
@@ -117,7 +117,10 @@ export class MetricsService {
         const route = row.route;
         if (route === RouteType.DIRECT || route === RouteType.DIRECT_FALLBACK) {
           direct++;
-        } else if (route === RouteType.LLM_SYNTHESIS || route === RouteType.LLM_SYNTHESIS) {
+        } else if (
+          route === RouteType.LLM_SYNTHESIS ||
+          route === RouteType.LLM_SYNTHESIS
+        ) {
           llm++;
         } else if (route === RouteType.FALLBACK) {
           fallback++;
@@ -149,20 +152,30 @@ export class MetricsService {
       }
 
       const count = data?.length || 0;
-      
+
       // Check if latency and failure columns exist
-      const hasLatency = data && data.length > 0 && 'response_time_ms' in data[0];
+      const hasLatency =
+        data && data.length > 0 && 'response_time_ms' in data[0];
       const hasFeedback = data && data.length > 0 && 'feedback' in data[0];
 
-      const result: { count: number; avgLatency?: number; failureCount?: number } = { count };
+      const result: {
+        count: number;
+        avgLatency?: number;
+        failureCount?: number;
+      } = { count };
 
       if (hasLatency && data) {
-        const totalLatency = data.reduce((sum, row) => sum + (row.response_time_ms || 0), 0);
+        const totalLatency = data.reduce(
+          (sum, row) => sum + (row.response_time_ms || 0),
+          0,
+        );
         result.avgLatency = Math.round(totalLatency / data.length);
       }
 
       if (hasFeedback && data) {
-        result.failureCount = data.filter(row => row.feedback === false).length;
+        result.failureCount = data.filter(
+          (row) => row.feedback === false,
+        ).length;
       }
 
       return result;
@@ -179,9 +192,7 @@ export class MetricsService {
     }
 
     try {
-      const { data } = await client
-        .from('query_logs')
-        .select('feedback');
+      const { data } = await client.from('query_logs').select('feedback');
 
       if (!data) {
         return { thumbsUp: 0, thumbsDown: 0, noFeedback: 0 };
@@ -208,4 +219,3 @@ export class MetricsService {
     }
   }
 }
-

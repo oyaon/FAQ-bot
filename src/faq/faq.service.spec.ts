@@ -148,11 +148,11 @@ describe('FaqService', () => {
 
       mockSupabaseClient.rpc.mockResolvedValue({
         data: null,
-        error: { 
+        error: {
           message: 'function search_faqs does not exist',
           code: 'PGRST116',
           details: null,
-          hint: null
+          hint: null,
         },
       });
 

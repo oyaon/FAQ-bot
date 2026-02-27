@@ -19,10 +19,10 @@ export class EmbeddingService implements OnModuleInit, OnModuleDestroy {
       );
       // Load the feature extraction pipeline
       // Using type assertion to handle the @xenova/transformers type mismatch
-      this.extractor = await pipeline(
+      this.extractor = (await pipeline(
         'feature-extraction',
         'Xenova/all-MiniLM-L6-v2',
-      ) as unknown as Pipeline;
+      )) as unknown as Pipeline;
       this.isModelReady = true;
       this.logger.log('Embedding model loaded successfully');
     } catch (error) {
@@ -64,4 +64,3 @@ export class EmbeddingService implements OnModuleInit, OnModuleDestroy {
     this.extractor = null;
   }
 }
-
